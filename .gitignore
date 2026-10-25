@@ -1,0 +1,22 @@
+# dependencies / build
+node_modules
+.next
+out
+dist
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# secrets — commit .env.example only
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# misc
+.DS_Store
+npm-debug.log*
+.turbo
+coverage
