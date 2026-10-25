@@ -146,8 +146,8 @@ export function mountIsland(host: HTMLElement): GameApi {
       const speed = (keys.has("shift") || length > 0.85 ? 9.2 : 5.4) * (length > 1 ? 1 : length);
       const sin = Math.sin(cameraYaw);
       const cos = Math.cos(cameraYaw);
-      const dx = (sin * iy + cos * ix) * speed * dt;
-      const dz = (cos * iy - sin * ix) * speed * dt;
+      const dx = (sin * iy - cos * ix) * speed * dt;
+      const dz = (cos * iy + sin * ix) * speed * dt;
       if (isWalkable(x + dx, z)) x += dx;
       if (isWalkable(x, z + dz)) z += dz;
       if (Math.hypot(dx, dz) > 0.0008) {
