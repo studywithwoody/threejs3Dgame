@@ -8,13 +8,13 @@ import { stationOrderRef, uiBridge } from "@/game/bridge";
 import { connectIsland, type IslandConnection, type NetMode } from "@/game/net";
 import type { GameApi } from "@/game/mount";
 import { setStick } from "@/game/mount";
-import { parseQuestions, type Question } from "@/game/questions";
+import { type PublicQuestion } from "@/game/questions";
 import {
-  award,
   canSolve,
   loadProgress,
   mergeProgress,
   nextStation,
+  normalizeProgress,
   saveProgress,
   signature,
   stationOrder,
@@ -26,8 +26,17 @@ import { emptyProgress, type ChatMessage, type IslandProgress, type Profile } fr
 type Status = {
   authConfigured: boolean;
   missing: string[];
+  databaseConfigured: boolean;
   realtimeConfigured: boolean;
   urlConfigured: boolean;
+};
+
+type AnswerPayload = {
+  correct?: boolean;
+  reason?: string;
+  explain?: string;
+  progress?: IslandProgress;
+  persisted?: boolean;
 };
 
 type SessionUser = {
@@ -52,7 +61,7 @@ export function Shell() {
   const lastChat = useRef(0);
 
   const [status, setStatus] = useState<Status | null>(null);
-  const [questions, setQuestions] = useState<Question[] | null>(null);
+  const [questions, setQuestions] = useState<PublicQuestion[] | null>(null);
   const [questionError, setQuestionError] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [sessionPending, setSessionPending] = useState(false);
@@ -67,6 +76,8 @@ export function Shell() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
   const [verdict, setVerdict] = useState<"idle" | "wrong" | "correct">("idle");
+  const [submitting, setSubmitting] = useState(false);
+  const [quizNote, setQuizNote] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
   const [guestName, setGuestName] = useState("");
   const [guestColor, setGuestColor] = useState<string>(AVATAR_COLORS[0]);
@@ -122,14 +133,15 @@ export function Shell() {
         setStatus({
           authConfigured: false,
           missing: ["無法讀取 /api/status"],
+          databaseConfigured: false,
           realtimeConfigured: false,
           urlConfigured: false,
         }),
       );
 
-    fetch("/questions.json", { cache: "no-store" })
+    fetch("/api/questions", { cache: "no-store" })
       .then((response) => response.json())
-      .then((data) => setQuestions(parseQuestions(data)))
+      .then((data: { stations?: PublicQuestion[] }) => setQuestions(data.stations ?? []))
       .catch(() => setQuestionError(true));
 
     const onStorage = (event: StorageEvent) => {
@@ -166,26 +178,43 @@ export function Shell() {
       setBanner(null);
       setMessages([]);
       apiRef.current?.enter(profile);
-      apiRef.current?.applyProgress(progressRef.current);
-      const conn = await connectIsland({
-        profile,
-        order: orderRef.current,
-        onProgress: (incoming) => {
-          setProgress((prev) => {
-            const merged = mergeProgress(orderRef.current, [prev, incoming]);
-            if (signature(merged) === signature(prev)) return prev;
+      let current = progressRef.current;
+      if (status?.databaseConfigured) {
+        const remote = await fetchSharedProgress();
+        if (remote && ticket === generation.current) {
+          const merged = mergeProgress(orderRef.current, [emptyProgress(), remote]);
+          if (signature(merged) !== signature(current)) {
+            current = merged;
             saveProgress(merged);
-            return merged;
-          });
+            setProgress(merged);
+          }
+        }
+      }
+      if (ticket !== generation.current) return;
+      progressRef.current = current;
+      apiRef.current?.applyProgress(current);
+      const conn = await connectIsland(
+        {
+          profile,
+          order: orderRef.current,
+          onProgress: (incoming) => {
+            setProgress((prev) => {
+              const merged = mergeProgress(orderRef.current, [prev, incoming]);
+              if (signature(merged) === signature(prev)) return prev;
+              saveProgress(merged);
+              return merged;
+            });
+          },
+          onChat: (message) => {
+            setMessages((prev) => [...prev.slice(-79), message]);
+            apiRef.current?.showBubble(message.id, message.text);
+          },
+          onPose: (pose) => apiRef.current?.upsertRemote(pose),
+          onLeave: (id) => apiRef.current?.removeRemote(id),
+          onRoster: (people) => setRoster(people),
         },
-        onChat: (message) => {
-          setMessages((prev) => [...prev.slice(-79), message]);
-          apiRef.current?.showBubble(message.id, message.text);
-        },
-        onPose: (pose) => apiRef.current?.upsertRemote(pose),
-        onLeave: (id) => apiRef.current?.removeRemote(id),
-        onRoster: (people) => setRoster(people),
-      });
+        { databaseConfigured: status?.databaseConfigured },
+      );
       if (ticket !== generation.current) {
         conn.close();
         return;
@@ -193,10 +222,29 @@ export function Shell() {
       netRef.current = conn;
       setMode(conn.mode);
       setBanner(conn.warning ?? null);
-      conn.sendProgress(progressRef.current);
+      conn.sendProgress(current);
     },
-    [],
+    [status?.databaseConfigured],
   );
+
+  useEffect(() => {
+    if (!me || !status?.databaseConfigured) return;
+    let stop = false;
+    const pull = async () => {
+      const remote = await fetchSharedProgress();
+      if (stop || !remote) return;
+      const merged = mergeProgress(orderRef.current, [emptyProgress(), remote]);
+      if (signature(merged) === signature(progressRef.current)) return;
+      saveProgress(merged);
+      setProgress(merged);
+      netRef.current?.sendProgress(merged);
+    };
+    const timer = window.setInterval(() => void pull(), 10000);
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+    };
+  }, [me, status?.databaseConfigured]);
 
   useEffect(() => {
     if (!status?.authConfigured || !questions) return;
@@ -220,23 +268,58 @@ export function Shell() {
     setActiveId(id);
     setPicked(null);
     setVerdict("idle");
+    setQuizNote(null);
+    setSubmitting(false);
   }
 
-  function choose(index: number) {
-    if (!activeId || !me || verdict === "correct") return;
+  async function choose(index: number) {
+    if (!activeId || !me || verdict === "correct" || submitting) return;
     const question = questions?.find((item) => item.id === activeId);
     if (!question) return;
     if (!canSolve(order, progress.solved, question.id)) return;
     setPicked(index);
-    if (index !== question.answer) {
+    setSubmitting(true);
+    setQuizNote(null);
+    try {
+      const response = await fetch("/api/answer", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          stationId: question.id,
+          choice: index,
+          playerId: me.id,
+          playerName: me.name,
+          progress: progressRef.current,
+        }),
+      });
+      const data = (await response.json()) as AnswerPayload;
+      if (!response.ok || !data.progress) {
+        setQuizNote(response.status === 401 ? "請先用 Google 登入再作答。" : "沒有送出，請再試一次。");
+        return;
+      }
+      const merged = mergeProgress(
+        order,
+        data.persisted
+          ? [emptyProgress(), normalizeProgress(data.progress)]
+          : [progressRef.current, normalizeProgress(data.progress)],
+      );
+      if (signature(merged) !== signature(progressRef.current)) {
+        saveProgress(merged);
+        progressRef.current = merged;
+        setProgress(merged);
+        netRef.current?.sendProgress(merged);
+      }
+      if (data.correct) {
+        setVerdict("correct");
+        return;
+      }
+      if (data.reason === "locked" || data.reason === "solved") return;
       setVerdict("wrong");
-      return;
+    } catch {
+      setQuizNote("沒有送出，請再試一次。");
+    } finally {
+      setSubmitting(false);
     }
-    const next = award(progress, order, question.id, me.id, me.name);
-    saveProgress(next);
-    setProgress(next);
-    netRef.current?.sendProgress(next);
-    setVerdict("correct");
   }
 
   async function saveProfile() {
@@ -324,7 +407,7 @@ export function Shell() {
           <em>{progress.solved.length}</em> / {questions?.length ?? 5}
         </span>
         <span>{score} 分</span>
-        {mode ? <span className="mode">{mode === "supabase" ? "全班連線" : "本機分頁"}</span> : null}
+        {mode ? <span className="mode">{mode === "remote" ? "全班連線" : "本機分頁"}</span> : null}
       </section>
 
       {banner ? <p className="banner">{banner}</p> : null}
@@ -441,7 +524,7 @@ export function Shell() {
             {!status || !questions ? (
               <p>正在把島準備好…</p>
             ) : questionError || questions.length === 0 ? (
-              <p>題目檔讀取失敗。請確認 <code>public/questions.json</code>。</p>
+              <p>題目檔讀取失敗。請確認 <code>data/questions.json</code>。</p>
             ) : status.authConfigured ? (
               <>
                 <p>用 Google 帳號進來。島上會顯示你的名稱和頭像，暱稱可以再改。信件地址不會出現在畫面上。</p>
@@ -474,7 +557,7 @@ export function Shell() {
                 <button className="primary" type="button" onClick={startGuest}>
                   以訪客進入
                 </button>
-                <p className="note">沒有 Supabase 時，只有同一個瀏覽器的分頁看得到彼此。</p>
+                <p className="note">同一個瀏覽器的分頁看得到彼此。跨裝置的即時位置與聊天之後才會接上。</p>
               </>
             )}
           </section>
@@ -533,15 +616,16 @@ export function Shell() {
                     <button
                       key={`${active.id}-${index}`}
                       type="button"
-                      className={choiceClass(index, active, picked, verdict)}
-                      onClick={() => choose(index)}
-                      disabled={verdict === "correct"}
+                      className={choiceClass(index, picked, verdict)}
+                      onClick={() => void choose(index)}
+                      disabled={verdict === "correct" || submitting}
                     >
                       {choice}
                     </button>
                   ))}
                 </div>
                 {verdict === "wrong" ? <p className="warn">再想想，這次還沒對。</p> : null}
+                {quizNote ? <p className="warn">{quizNote}</p> : null}
                 {verdict === "correct" ? (
                   <>
                     <p>{active.explain}</p>
@@ -707,8 +791,21 @@ function labelOf(id: string | null) {
   return PLACES.find((place) => place.id === id)?.label ?? "第一站";
 }
 
-function choiceClass(index: number, question: Question, picked: number | null, verdict: "idle" | "wrong" | "correct") {
-  if (verdict === "correct" && index === question.answer) return "right";
-  if (verdict === "wrong" && index === picked) return "wrong";
+function choiceClass(index: number, picked: number | null, verdict: "idle" | "wrong" | "correct") {
+  if (picked !== index) return "";
+  if (verdict === "correct") return "right";
+  if (verdict === "wrong") return "wrong";
   return "";
+}
+
+async function fetchSharedProgress() {
+  try {
+    const response = await fetch("/api/progress", { cache: "no-store" });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { progress?: IslandProgress; persisted?: boolean };
+    if (!data.persisted || !data.progress) return null;
+    return normalizeProgress(data.progress);
+  } catch {
+    return null;
+  }
 }

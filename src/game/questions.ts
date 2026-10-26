@@ -1,14 +1,17 @@
 import { PLACES } from "@/game/terrain";
 
-export type Question = {
+export type PublicQuestion = {
   id: string;
   stage: number;
   title: string;
   badge: string;
   prompt: string;
   choices: string[];
-  answer: number;
   explain: string;
+};
+
+export type Question = PublicQuestion & {
+  answer: number;
 };
 
 const KNOWN = new Set(PLACES.map((place) => place.id));

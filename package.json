@@ -10,7 +10,6 @@
     "db:migrate": "node --env-file=.env.local ./node_modules/drizzle-kit/bin.cjs migrate"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.118.0",
     "better-auth": "^1.7.12",
     "drizzle-orm": "^0.45.4",
     "next": "^16.4.3",
