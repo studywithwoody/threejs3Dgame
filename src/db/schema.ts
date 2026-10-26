@@ -2,7 +2,7 @@ export * from "./auth-schema";
 
 import { integer, jsonb, pgTable, timestamp } from "drizzle-orm/pg-core";
 
-/** Shared classroom progress. Written by the browser with the Supabase publishable key. */
+/** Shared classroom progress. Only server routes read and write this row. */
 export const islandProgress = pgTable("island_progress", {
   id: integer("id").primaryKey(),
   solved: jsonb("solved").$type<string[]>().notNull(),

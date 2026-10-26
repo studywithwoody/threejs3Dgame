@@ -13,6 +13,7 @@ export function getDb(): Database | null {
   const url = process.env.DATABASE_URL;
   if (!url) return null;
   if (!globalForDb.__dawnDb) {
+    // Neon pooled URLs (and any PgBouncer transaction pool) reject prepared statements.
     const sql = postgres(url, {
       prepare: false,
       max: 1,
