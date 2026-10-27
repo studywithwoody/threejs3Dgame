@@ -637,6 +637,15 @@ export function Shell() {
       {roomOpen && me ? (
         <div className="gate">
           <section className="card room-card" role="dialog" aria-labelledby="room-title">
+            <button
+              className="room-close"
+              type="button"
+              aria-label="關閉我的房間"
+              title="關閉我的房間"
+              onClick={() => setRoomOpen(false)}
+            >
+              ×
+            </button>
             <PetRoom3D
               pet={displayPet}
               onInteract={() => setPetNote(displayPet?.status === "sick" ? "小曙蹭了蹭你的手，但看起來還是需要休息。" : "小曙開心地跳起來！牠知道你一直陪著牠。")}
@@ -662,7 +671,6 @@ export function Shell() {
             ) : null}
             {petNote ? <p className="pet-note">{petNote}</p> : null}
             <p className="note">一天沒餵會生病，兩天沒餵會離世。每天答一題，讓牠一直陪你探索曙島。</p>
-            <button type="button" onClick={() => setRoomOpen(false)}>回到島上</button>
           </section>
         </div>
       ) : null}
