@@ -96,7 +96,7 @@ export function mountIsland(host: HTMLElement): GameApi {
     const p = selectedEditorObject.position;
     const r = selectedEditorObject.rotation;
     const s = selectedEditorObject.scale;
-    editorHud.textContent = `場景編輯器 · ${selectedEditorId}\n位置 (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})\n旋轉 (${r.x.toFixed(2)}, ${r.y.toFixed(2)}, ${r.z.toFixed(2)}) · 縮放 (${s.x.toFixed(2)}, ${s.y.toFixed(2)}, ${s.z.toFixed(2)})\nW 移動 · E 旋轉 · R 縮放 · F2 關閉`;
+    editorHud.textContent = `場景編輯器 · ${selectedEditorId}\n位置 (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})\n旋轉 (${r.x.toFixed(2)}, ${r.y.toFixed(2)}, ${r.z.toFixed(2)}) · 縮放 (${s.x.toFixed(2)}, ${s.y.toFixed(2)}, ${s.z.toFixed(2)})\nWASD 位移 · E 旋轉 · R 縮放 · Shift 加速 · F2 關閉`;
   };
 
   const refreshEditorBounds = () => {
@@ -127,6 +127,16 @@ export function mountIsland(host: HTMLElement): GameApi {
         // Keep the editor usable if the local save endpoint is unavailable.
       });
     }, 250);
+  };
+
+  const nudgeEditorObject = (x: number, z: number, accelerated = false) => {
+    if (!selectedEditorObject) return;
+    const step = 0.25 * (accelerated ? 4 : 1);
+    transformControls.setMode("translate");
+    selectedEditorObject.position.x += x * step;
+    selectedEditorObject.position.z += z * step;
+    refreshEditorBounds();
+    queueEditorSave();
   };
 
   const selectEditorObject = (object: THREE.Object3D | null, id: string | null) => {
@@ -233,11 +243,15 @@ export function mountIsland(host: HTMLElement): GameApi {
       return;
     }
     if (editorEnabled) {
-      if (event.key.toLowerCase() === "w") transformControls.setMode("translate");
-      if (event.key.toLowerCase() === "e") transformControls.setMode("rotate");
-      if (event.key.toLowerCase() === "r") transformControls.setMode("scale");
+      const key = event.key.toLowerCase();
+      if (key === "w") nudgeEditorObject(0, -1, event.shiftKey);
+      if (key === "a") nudgeEditorObject(-1, 0, event.shiftKey);
+      if (key === "s") nudgeEditorObject(0, 1, event.shiftKey);
+      if (key === "d") nudgeEditorObject(1, 0, event.shiftKey);
+      if (key === "e") transformControls.setMode("rotate");
+      if (key === "r") transformControls.setMode("scale");
       if (event.key === "Escape") selectEditorObject(null, null);
-      if (["w", "e", "r", "Escape"].includes(event.key)) event.preventDefault();
+      if (["w", "a", "s", "d", "e", "r", "Escape"].includes(key)) event.preventDefault();
       return;
     }
     keys.add(event.key.toLowerCase());
