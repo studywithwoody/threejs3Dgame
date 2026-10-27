@@ -24,12 +24,8 @@ import {
   STORAGE_KEY,
 } from "@/game/progress";
 import { PLACES } from "@/game/terrain";
-<<<<<<< Updated upstream
-import { emptyProgress, type IslandProgress, type Profile } from "@/game/types";
-=======
-import { emptyProgress, type ChatMessage, type IslandProgress, type PetState, type Profile } from "@/game/types";
+import { emptyProgress, type IslandProgress, type PetState, type Profile } from "@/game/types";
 import { petStatus } from "@/game/progress";
->>>>>>> Stashed changes
 
 type Status = {
   authConfigured: boolean;
@@ -90,12 +86,8 @@ export function Shell() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
-<<<<<<< Updated upstream
-=======
   const [roomOpen, setRoomOpen] = useState(false);
   const [petNote, setPetNote] = useState<string | null>(null);
-  const logRef = useRef<HTMLDivElement>(null);
->>>>>>> Stashed changes
 
   const order = useMemo(() => (questions ? stationOrder(questions) : []), [questions]);
   orderRef.current = order;
@@ -162,8 +154,6 @@ export function Shell() {
     apiRef.current?.applyProgress(progress);
   }, [progress]);
 
-<<<<<<< Updated upstream
-=======
   useEffect(() => {
     if (!me || progress.pets[me.id]) return;
     const next = { ...progress, pets: { ...progress.pets, [me.id]: freshPet() } };
@@ -189,12 +179,6 @@ export function Shell() {
     }, 30000);
     return () => window.clearInterval(timer);
   }, [me]);
-
-  useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
-  }, [messages, chatOpen]);
-
->>>>>>> Stashed changes
   const leaveGame = useCallback(() => {
     generation.current += 1;
     netRef.current?.close();
