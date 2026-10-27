@@ -5,6 +5,7 @@ import IslandStage from "@/components/IslandStage";
 import CameraControls from "@/components/CameraControls";
 import Notifications, { type IslandNotification } from "@/components/Notifications";
 import PetRoom3D from "@/components/PetRoom3D";
+import CharacterPreview3D from "@/components/CharacterPreview3D";
 import { authClient } from "@/lib/auth-client";
 import { AVATAR_COLORS, cleanNickname, colorFromId, displayName } from "@/lib/profile";
 import { stationOrderRef, uiBridge } from "@/game/bridge";
@@ -555,7 +556,7 @@ export function Shell() {
               {me.image ? <img src={me.image} alt="" referrerPolicy="no-referrer" /> : <i style={{ background: me.color }} />}
               <span>
                 <strong>{me.name}</strong>
-                <small>改暱稱與顏色</small>
+                <small>我的角色 · 名稱與顏色</small>
               </span>
             </button>
             <div className="badges" aria-label="徽章">
@@ -652,8 +653,9 @@ export function Shell() {
                     placeholder="例如：林同學"
                   />
                 </label>
-                <AvatarRow value={guestAvatar} onChange={setGuestAvatar} />
                 <ColorRow value={guestColor} onChange={setGuestColor} />
+                <AvatarRow value={guestAvatar} onChange={setGuestAvatar} />
+                <CharacterPreview3D modelId={guestAvatar} />
                 <button className="primary" type="button" onClick={startGuest}>
                   以訪客進入
                 </button>
@@ -666,7 +668,18 @@ export function Shell() {
 
       {profileOpen && me ? (
         <div className="gate">
-          <section className="card" role="dialog" aria-labelledby="profile-title">
+          <section className="card character-card" role="dialog" aria-labelledby="profile-title">
+            {!avatarSetupOpen ? (
+              <button
+                className="room-close"
+                type="button"
+                aria-label="關閉我的角色"
+                title="關閉我的角色"
+                onClick={() => setProfileOpen(false)}
+              >
+                ×
+              </button>
+            ) : null}
             <p className="eyebrow">PROFILE</p>
             <h2 id="profile-title">{avatarSetupOpen ? "建立你的島嶼角色" : "島上的名字與角色"}</h2>
             <p>{avatarSetupOpen ? "先選一個 Blocky 角色，之後可以隨時在個人資料中更換。" : `Google 名稱是「${user?.name || me.name}」。暱稱留白就會改回那個名稱。`}</p>
@@ -686,6 +699,7 @@ export function Shell() {
             </label>
             <AvatarRow value={avatarDraft} onChange={setAvatarDraft} />
             <ColorRow value={colorDraft} onChange={setColorDraft} />
+            <CharacterPreview3D modelId={avatarDraft} />
             {profileError ? <p className="warn">{profileError}</p> : null}
             <div className="row">
               <button type="button" onClick={() => { if (!avatarSetupOpen) setProfileOpen(false); }} disabled={avatarSetupOpen}>

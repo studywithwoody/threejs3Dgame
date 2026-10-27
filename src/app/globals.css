@@ -337,6 +337,16 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 .choices button.wrong { background: #fde2d8; }
 .quiz { max-height: min(78dvh, 720px); overflow: auto; }
 .room-card { max-height: min(88dvh, 760px); overflow: auto; position: relative; }
+.character-card { max-height: min(88dvh, 760px); overflow: auto; position: relative; }
+.character-preview-3d {
+  height: 190px;
+  margin: 8px -4px 14px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #fff;
+  box-shadow: inset 0 -12px 0 #dcae77;
+}
+.character-preview-3d canvas { display: block; width: 100%; height: 100%; }
 .room-close {
   position: absolute;
   top: 10px;
