@@ -36,16 +36,10 @@ export function onDock(x: number, z: number) {
 }
 
 export function groundY(x: number, z: number) {
-  const theta = Math.atan2(z, x);
-  const edge = islandRadius(theta);
-  const r = Math.hypot(x, z);
-  if (onDock(x, z) && r > edge - 1.1) return 0.46;
-  const u = edge === 0 ? 0 : r / edge;
-  const dune = Math.cos(Math.min(u, 1) * Math.PI * 0.5) ** 1.35 * 2.05;
-  const hill = Math.exp(-(x * x + (z - 8.2) * (z - 8.2)) / 62) * 3.55;
-  const knoll = Math.exp(-((x - 7.2) ** 2 + (z - 16.4) ** 2) / 34) * 1.7;
-  const west = Math.exp(-((x + 12.5) ** 2 + (z + 0.6) ** 2) / 30) * 0.85;
-  return dune + hill + knoll + west;
+  void x;
+  void z;
+  // The visible floor is assembled from Kenney Platformer Kit blocks at y=0.
+  return 0;
 }
 
 function blocked(x: number, z: number) {

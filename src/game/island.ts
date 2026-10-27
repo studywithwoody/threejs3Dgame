@@ -9,9 +9,6 @@ const CREAM = "#fff4ea";
 const CORAL = "#e07a5f";
 const SAGE = "#6e9a62";
 const GLASS = "#d7f3e6";
-const LEAF = "#6eaa58";
-const LEAF_DARK = "#3f7d45";
-const ROCK = "#b7a89a";
 const kitLoader = new GLTFLoader();
 const kitCache = new Map<string, Promise<import("three/examples/jsm/loaders/GLTFLoader.js").GLTF>>();
 
@@ -106,94 +103,11 @@ export function buildIsland(scene: THREE.Scene): IslandWorld {
   keep(waterGeo);
   keep(waterMat);
 
-  const terrain = buildTerrain();
-  terrain.receiveShadow = true;
-  scene.add(terrain);
-  keep(terrain.geometry);
-  keep(terrain.material as THREE.Material);
-  buildGrassPatches(scene, keep);
-
-  const trunkGeo = keep(new THREE.CylinderGeometry(0.12, 0.18, 0.9, 6));
-  const crownGeo = keep(new THREE.ConeGeometry(0.72, 1.35, 7));
-  const trunkMat = std("#8d5a32");
-  const leafMat = std(LEAF);
-  const leafDark = std(LEAF_DARK);
-  const rng = mulberry32(27);
-  for (let i = 0; i < 34; i += 1) {
-    const theta = rng() * Math.PI * 2;
-    const u = 0.18 + rng() * 0.62;
-    const edge = islandRadius(theta);
-    const x = Math.cos(theta) * edge * u;
-    const z = Math.sin(theta) * edge * u;
-    if (!isWalkable(x, z) || nearPlace(x, z, 2.4)) continue;
-    const scale = 0.75 + rng() * 0.7;
-    const tree = new THREE.Group();
-    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-    trunk.position.y = 0.45 * scale;
-    trunk.castShadow = true;
-    const crown = new THREE.Mesh(crownGeo, rng() > 0.45 ? leafMat : leafDark);
-    crown.position.y = 1.35 * scale;
-    crown.castShadow = true;
-    const crown2 = crown.clone();
-    crown2.position.y = 1.9 * scale;
-    crown2.scale.setScalar(0.72);
-    tree.add(trunk, crown, crown2);
-    tree.position.set(x, groundY(x, z) - 0.05, z);
-    tree.scale.setScalar(scale);
-    scene.add(tree);
-  }
-
-  const rockGeo = keep(new THREE.DodecahedronGeometry(0.55, 0));
-  const rockMat = std(ROCK);
-  for (let i = 0; i < 16; i += 1) {
-    const theta = rng() * Math.PI * 2;
-    const edge = islandRadius(theta);
-    const u = 0.72 + rng() * 0.22;
-    const x = Math.cos(theta) * edge * u;
-    const z = Math.sin(theta) * edge * u;
-    if (nearPlace(x, z, 2)) continue;
-    const rock = new THREE.Mesh(rockGeo, rockMat);
-    rock.position.set(x, groundY(x, z) + 0.1, z);
-    rock.scale.set(0.5 + rng(), 0.35 + rng() * 0.4, 0.5 + rng());
-    rock.rotation.y = rng() * Math.PI;
-    rock.castShadow = true;
-    scene.add(rock);
-  }
-
-  const pathMat = std("#efd3a0");
-  const pathPoints: Array<[number, number]> = [
-    [0, -18],
-    [0, -12],
-    [-5, -7],
-    [-10.2, -3.6],
-    [-6, 1],
-    [0.4, 4.6],
-    [2.2, 6.2],
-    [7, 5],
-    [11, 1.2],
-    [8, 8],
-    [6.2, 13],
-  ];
-  const disc = keep(new THREE.CircleGeometry(1, 14));
-  for (const [x, z] of pathPoints) {
-    const pad = new THREE.Mesh(disc, pathMat);
-    pad.rotation.x = -Math.PI / 2;
-    pad.position.set(x, groundY(x, z) + 0.06, z);
-    pad.scale.set(1.15, 1.15, 1);
-    pad.receiveShadow = true;
-    scene.add(pad);
-  }
-
   const course = buildPlatformerCourse(scene, keep);
-
-  const clouds = buildClouds(scene, keep);
 
   return {
     update(time, solved) {
       waterMat.uniforms.uTime.value = time;
-      for (const cloud of clouds) {
-        cloud.position.x += Math.sin(time * 0.15 + cloud.position.z) * 0.004;
-      }
       course.update(time);
     },
     tryCollectCoin(x, z) {
@@ -206,36 +120,10 @@ export function buildIsland(scene: THREE.Scene): IslandWorld {
 }
 
 function buildPlatformerCourse(scene: THREE.Scene, keep: <T extends { dispose: () => void }>(item: T) => T) {
-  const platformGeo = keep(new THREE.BoxGeometry(3.8, 0.65, 3.8));
-  const smallPlatformGeo = keep(new THREE.BoxGeometry(2.5, 0.55, 2.5));
-  const grassMat = std("#65b84f");
-  const dirtMat = std("#a86a3e");
-  const woodMat = std("#d28a43");
-  const goldMat = std("#ffd447", { emissive: "#d88b1e", emissiveIntensity: 0.35 });
-  const blueMat = std("#5aa6d6");
-  const pieces: THREE.Mesh[] = [];
-
-  const addPlatform = (x: number, z: number, y: number, scale = 1, material = grassMat) => {
-    const mesh = new THREE.Mesh(scale === 1 ? platformGeo : smallPlatformGeo, material);
-    mesh.position.set(x, y, z);
-    mesh.scale.y = scale;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    scene.add(mesh);
-    pieces.push(mesh);
-    return mesh;
-  };
-
-  addPlatform(0, -11, groundY(0, -11) + 0.32, 1.15);
-  addPlatform(-5.5, -5.5, groundY(-5.5, -5.5) + 1.0, 0.8, woodMat);
-  addPlatform(3.5, -1, groundY(3.5, -1) + 1.8, 0.75, blueMat);
-  addPlatform(9, 4, groundY(9, 4) + 2.6, 0.7, woodMat);
-  addPlatform(4, 10, groundY(4, 10) + 1.6, 0.85);
-  addPlatform(-5, 8, groundY(-5, 8) + 1.2, 0.75, blueMat);
-
   const kitPath = (name: string) => `/assets/platformer-kit/Models/GLB%20format/${name}.glb`;
   const kitCoins: Array<THREE.Object3D | null> = [];
   const kitFlags: THREE.Object3D[] = [];
+  const movingPlatforms: THREE.Object3D[] = [];
   const addKitModel = (name: string, position: THREE.Vector3, scale: number, target: Array<THREE.Object3D | null> = [], index = -1) => {
     const path = kitPath(name);
     let request = kitCache.get(path);
@@ -255,71 +143,73 @@ function buildPlatformerCourse(scene: THREE.Scene, keep: <T extends { dispose: (
       if (index >= 0) target[index] = model;
       else target.push(model);
     }).catch(() => {
-      // The geometric course remains available if an optional kit model fails to load.
+      // The level intentionally contains only Platformer Kit assets.
     });
   };
 
-  const kitPlatforms: Array<[string, number, number, number, number]> = [
-    ["block-grass", 0, groundY(0, -11) + 0.55, -11, 2.1],
-    ["block-grass-large", -5.5, groundY(-5.5, -5.5) + 1.3, -5.5, 1.65],
-    ["platform-ramp", 3.5, groundY(3.5, -1) + 2.05, -1, 1.55],
-    ["block-grass-large", 9, groundY(9, 4) + 3.15, 4, 1.35],
-    ["block-grass", 4, groundY(4, 10) + 1.95, 10, 1.7],
-    ["block-moving-blue", -5, groundY(-5, 8) + 1.55, 8, 1.5],
+  // A grid of Kenney grass blocks is the island: no custom terrain mesh underneath.
+  const groundTiles: Array<[number, number]> = [];
+  for (let x = -18; x <= 18; x += 6) {
+    for (let z = -18; z <= 18; z += 6) {
+      if (Math.hypot(x, z + 1) < 22) groundTiles.push([x, z]);
+    }
+  }
+  for (const [x, z] of groundTiles) {
+    addKitModel("block-grass-large", new THREE.Vector3(x, 0, z), 2.2);
+  }
+  for (const [x, z, rotation] of [[-21, -15, 0], [21, -9, Math.PI], [-15, 21, Math.PI / 2], [15, 21, -Math.PI / 2]] as const) {
+    addKitModel("block-grass-large-slope", new THREE.Vector3(x, 0, z), 2.2);
+    void rotation;
+  }
+
+  const raisedPlatforms: Array<[string, number, number, number, number]> = [
+    ["block-grass", -6, 2.4, -6, 1.8],
+    ["platform-ramp", 0, 3.2, -1, 1.8],
+    ["block-grass-large", 6, 4.8, 3, 1.65],
+    ["block-grass-long", 3, 2.4, 12, 1.55],
+    ["block-moving-blue", -8, 3.6, 9, 1.7],
   ];
-  for (const [name, x, y, z, scale] of kitPlatforms) addKitModel(name, new THREE.Vector3(x, y, z), scale);
-  addKitModel("flag", new THREE.Vector3(4, groundY(4, 10) + 3.6, 10), 1.7, kitFlags);
-  addKitModel("tree-pine-small", new THREE.Vector3(-16, groundY(-16, 2), 2), 2.4);
-  addKitModel("tree-pine-small", new THREE.Vector3(15, groundY(15, -6), -6), 2.1);
-  addKitModel("flowers", new THREE.Vector3(-10, groundY(-10, 7) + 0.1, 7), 1.4);
-  const coinPositions = [[-5.5, 5.1, -5.5], [3.5, 6.2, -1], [9, 7.1, 4], [4, 6.2, 10], [-5, 5.4, 8]] as const;
+  for (const [name, x, y, z, scale] of raisedPlatforms) {
+    if (name === "block-moving-blue") {
+      addKitModel(name, new THREE.Vector3(x, y, z), scale, movingPlatforms as Array<THREE.Object3D | null>);
+    } else {
+      addKitModel(name, new THREE.Vector3(x, y, z), scale);
+    }
+  }
+
+  addKitModel("flag", new THREE.Vector3(3, 4.6, 12), 1.7, kitFlags);
+  for (const [name, x, z, scale] of [
+    ["tree-pine-small", -15, 3, 2.4],
+    ["tree-pine-small", 15, -9, 2.2],
+    ["tree-pine", -15, -15, 2.0],
+    ["rocks", 15, 15, 1.4],
+    ["flowers", -9, 15, 1.5],
+    ["mushrooms", -15, 9, 1.2],
+    ["fence-straight", 15, 9, 1.4],
+    ["crate", 9, -15, 1.5],
+  ] as const) addKitModel(name, new THREE.Vector3(x, 1.1, z), scale);
+
+  const coinPositions = [[-6, 5.4, -6], [0, 6.2, -1], [6, 6.8, 3], [3, 5.6, 12], [-8, 5.8, 9]] as const;
   for (const [index, [x, y, z]] of coinPositions.entries()) {
     addKitModel("coin-gold", new THREE.Vector3(x, y, z), 1.1, kitCoins, index);
   }
 
-  const coinGeo = keep(new THREE.TorusGeometry(0.34, 0.11, 8, 16));
-  const coins: THREE.Mesh[] = [];
-  const coinSpots: Array<{ x: number; z: number; primitive: THREE.Mesh; collected: boolean }> = [];
-  for (const [x, y, z] of coinPositions) {
-    const coin = new THREE.Mesh(coinGeo, goldMat);
-    coin.position.set(x, y, z);
-    coin.rotation.x = Math.PI / 2;
-    coin.castShadow = true;
-    scene.add(coin);
-    coins.push(coin);
-    coinSpots.push({ x, z, primitive: coin, collected: false });
-  }
-
-  const flagPoleGeo = keep(new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8));
-  const flagGeo = keep(new THREE.BoxGeometry(1.1, 0.65, 0.08));
-  const poleMat = std("#76523c");
-  const flagMat = std("#e85b4f");
-  const pole = new THREE.Mesh(flagPoleGeo, poleMat);
-  pole.position.set(4, groundY(4, 10) + 4.0, 10);
-  pole.castShadow = true;
-  const flag = new THREE.Mesh(flagGeo, flagMat);
-  flag.position.set(4.5, groundY(4, 10) + 4.95, 10);
-  flag.castShadow = true;
-  scene.add(pole, flag);
+  const coinSpots = coinPositions.map(([x, , z]) => ({ x, z, collected: false }));
 
   return {
     update(time: number) {
-      for (let i = 0; i < coins.length; i += 1) {
-        coins[i].rotation.y = time * 2.4 + i;
-        coins[i].position.y += Math.sin(time * 2.5 + i) * 0.002;
-      }
-      for (const coin of kitCoins) {
+      for (const [index, coin] of kitCoins.entries()) {
         if (coin) coin.rotation.y = time * 2.4;
+        if (coin) coin.position.y += Math.sin(time * 2.5 + index) * 0.002;
       }
-      flag.rotation.y = Math.sin(time * 2) * 0.12;
       for (const kitFlag of kitFlags) kitFlag.rotation.y = Math.sin(time * 2) * 0.12;
+      if (movingPlatforms[0]) movingPlatforms[0].position.x = -8 + Math.sin(time * 1.2) * 2.5;
     },
     tryCollectCoin(x: number, z: number) {
       for (let index = 0; index < coinSpots.length; index += 1) {
         const coin = coinSpots[index];
         if (coin.collected || Math.hypot(coin.x - x, coin.z - z) > 1.35) continue;
         coin.collected = true;
-        coin.primitive.visible = false;
         kitCoins[index]?.traverse((child) => { child.visible = false; });
         return true;
       }
