@@ -67,6 +67,7 @@ objects.push(
 // Snow valley in the foreground, with a kit platform used as a bridge.
 for (const [index, position] of ([
   [-2, 0, -5], [4, 0, -5], [10, 0, -5],
+  [-2, 0, -11], [4, 0, -11], [10, 0, -11],
   [1, 0.8, 1], [7, 1.5, 1], [13, 0.5, 1],
   [1, 2.2, 7], [7, 2.8, 7], [13, 1.8, 7],
 ] as Array<[number, number, number]>).entries()) {

@@ -13,7 +13,7 @@ export const PLACES: Place[] = [
   { id: "lighthouse", x: 4.8, z: 14.2, label: "燈塔" },
 ];
 
-export const SPAWN = { x: 0.4, z: -14.2 };
+export const SPAWN = { x: 4, z: -10.5 };
 
 export type PlatformSurface = {
   x: number;
