@@ -53,6 +53,31 @@ type SessionUser = {
   avatarColor?: string | null;
 };
 
+type InfoCardKey = "brand" | "progress" | "banner" | "side";
+
+function InfoCardToggle({
+  label,
+  collapsed,
+  onToggle,
+}: {
+  label: string;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      className="info-card-toggle"
+      type="button"
+      aria-label={`${collapsed ? "展開" : "最小化"}${label}`}
+      aria-expanded={!collapsed}
+      title={`${collapsed ? "展開" : "最小化"}${label}`}
+      onClick={onToggle}
+    >
+      {collapsed ? "+" : "−"}
+    </button>
+  );
+}
+
 const GUEST_KEY = "dawn-isle-guest";
 
 export function Shell() {
@@ -90,6 +115,11 @@ export function Shell() {
   const [signingIn, setSigningIn] = useState(false);
   const [roomOpen, setRoomOpen] = useState(false);
   const [petNote, setPetNote] = useState<string | null>(null);
+  const [collapsedInfo, setCollapsedInfo] = useState<Partial<Record<InfoCardKey, boolean>>>({});
+
+  const toggleInfoCard = (key: InfoCardKey) => {
+    setCollapsedInfo((previous) => ({ ...previous, [key]: !previous[key] }));
+  };
 
   const order = useMemo(() => (questions ? stationOrder(questions) : []), [questions]);
   orderRef.current = order;
@@ -468,78 +498,95 @@ export function Shell() {
       <div className="vignette" />
       {status?.authConfigured ? <SessionWatch onSession={onSession} /> : null}
 
-      <header className="brand">
-        <p className="eyebrow">DAWN ISLE</p>
-        <h1>曙島</h1>
-        <p>五座物理站，全班一起點亮。</p>
+      <header className={`brand info-card ${collapsedInfo.brand ? "is-collapsed" : ""}`}>
+        <InfoCardToggle label="島嶼介紹" collapsed={Boolean(collapsedInfo.brand)} onToggle={() => toggleInfoCard("brand")} />
+        <div className="info-card-content">
+          <p className="eyebrow">DAWN ISLE</p>
+          <h1>曙島</h1>
+          <p>五座物理站，全班一起點亮。</p>
+        </div>
       </header>
 
-      <section className="progress-pill" aria-label="島的進度">
-        <span>
-          <em>{progress.solved.length}</em> / {questions?.length ?? 5}
-        </span>
-        <span>{score} 分</span>
-        {mode ? <span className="mode">{mode === "remote" ? "全班連線" : "本機分頁"}</span> : null}
+      <section className={`progress-pill info-card ${collapsedInfo.progress ? "is-collapsed" : ""}`} aria-label="島的進度">
+        <InfoCardToggle label="島嶼進度" collapsed={Boolean(collapsedInfo.progress)} onToggle={() => toggleInfoCard("progress")} />
+        <div className="info-card-content">
+          <span>
+            <em>{progress.solved.length}</em> / {questions?.length ?? 5}
+          </span>
+          <span>{score} 分</span>
+          {mode ? <span className="mode">{mode === "remote" ? "全班連線" : "本機分頁"}</span> : null}
+        </div>
       </section>
 
-      {banner ? <p className="banner">{banner}</p> : null}
+      {banner ? (
+        <div className={`banner info-card ${collapsedInfo.banner ? "is-collapsed" : ""}`}>
+          <InfoCardToggle label="島嶼通知" collapsed={Boolean(collapsedInfo.banner)} onToggle={() => toggleInfoCard("banner")} />
+          <span className="info-card-content">{banner}</span>
+        </div>
+      ) : null}
       {questions && progress.solved.length === questions.length && questions.length > 0 ? (
-        <p className="ribbon">燈塔亮了。曙島的五個徽章都收集齊了。</p>
+        <div className={`ribbon info-card ${collapsedInfo.banner ? "is-collapsed" : ""}`}>
+          <InfoCardToggle label="島嶼通知" collapsed={Boolean(collapsedInfo.banner)} onToggle={() => toggleInfoCard("banner")} />
+          <span className="info-card-content">燈塔亮了。曙島的五個徽章都收集齊了。</span>
+        </div>
       ) : null}
 
       {me ? (
-        <aside className="side">
-          <button className="who" type="button" onClick={() => openProfile(me)}>
-            {me.image ? <img src={me.image} alt="" referrerPolicy="no-referrer" /> : <i style={{ background: me.color }} />}
-            <span>
-              <strong>{me.name}</strong>
-              <small>改暱稱與顏色</small>
-            </span>
-          </button>
-          <div className="badges" aria-label="徽章">
-            {(questions ?? [])
-              .filter((question) => progress.solved.includes(question.id))
-              .map((question) => (
-                <span key={question.id}>{question.badge}</span>
-              ))}
-          </div>
-          <button className="room-button" type="button" onClick={() => { setPetNote(null); setRoomOpen(true); }}>
-            <span className="pet-mini">{petEmoji(displayPet)}</span>
-            <span><strong>我的房間</strong><small>{petStatusLabel(displayPet?.status)}</small></span>
-            <b>進入 →</b>
-          </button>
-          <h2>島上的人</h2>
-          <ul className="roster">
-            {people.map((person) => (
-              <li key={person.id}>
-                <i style={{ background: person.color }} />
-                {person.name}
-                <b>{progress.scores[person.id] ?? 0}</b>
-              </li>
-            ))}
-          </ul>
-          {leaders.length > 0 ? (
-            <>
-              <h2>分數</h2>
-              <ol className="leaders">
-                {leaders.map((row) => (
-                  <li key={row.id}>
-                    <span>{row.name}</span>
-                    <b>{row.points}</b>
-                  </li>
+        <aside className={`side info-card ${collapsedInfo.side ? "is-collapsed" : ""}`}>
+          <InfoCardToggle label="島上資訊" collapsed={Boolean(collapsedInfo.side)} onToggle={() => toggleInfoCard("side")} />
+          <div className="info-card-content">
+            <button className="who" type="button" onClick={() => openProfile(me)}>
+              {me.image ? <img src={me.image} alt="" referrerPolicy="no-referrer" /> : <i style={{ background: me.color }} />}
+              <span>
+                <strong>{me.name}</strong>
+                <small>改暱稱與顏色</small>
+              </span>
+            </button>
+            <div className="badges" aria-label="徽章">
+              {(questions ?? [])
+                .filter((question) => progress.solved.includes(question.id))
+                .map((question) => (
+                  <span key={question.id}>{question.badge}</span>
                 ))}
-              </ol>
-            </>
-          ) : null}
-          {status?.authConfigured ? (
-            <button className="texty" type="button" onClick={() => void authClient.signOut()}>
-              登出
+            </div>
+            <button className="room-button" type="button" onClick={() => { setPetNote(null); setRoomOpen(true); }}>
+              <span className="pet-mini">{petEmoji(displayPet)}</span>
+              <span><strong>我的房間</strong><small>{petStatusLabel(displayPet?.status)}</small></span>
+              <b>進入 →</b>
             </button>
-          ) : (
-            <button className="texty" type="button" onClick={leaveGame}>
-              離開島嶼
-            </button>
-          )}
+            <h2>島上的人</h2>
+            <ul className="roster">
+              {people.map((person) => (
+                <li key={person.id}>
+                  <i style={{ background: person.color }} />
+                  {person.name}
+                  <b>{progress.scores[person.id] ?? 0}</b>
+                </li>
+              ))}
+            </ul>
+            {leaders.length > 0 ? (
+              <>
+                <h2>分數</h2>
+                <ol className="leaders">
+                  {leaders.map((row) => (
+                    <li key={row.id}>
+                      <span>{row.name}</span>
+                      <b>{row.points}</b>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            ) : null}
+            {status?.authConfigured ? (
+              <button className="texty" type="button" onClick={() => void authClient.signOut()}>
+                登出
+              </button>
+            ) : (
+              <button className="texty" type="button" onClick={leaveGame}>
+                離開島嶼
+              </button>
+            )}
+          </div>
         </aside>
       ) : null}
 

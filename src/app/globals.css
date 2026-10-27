@@ -32,7 +32,37 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   position: absolute;
   z-index: 2;
 }
-.brand { top: 22px; left: 28px; pointer-events: none; max-width: 240px; }
+.info-card { transition: background .18s ease, box-shadow .18s ease; }
+.info-card-content { display: block; }
+.info-card.is-collapsed { width: auto; min-width: 44px; }
+.info-card.is-collapsed .info-card-content { display: none; }
+.info-card-toggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fffdfbd9;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+}
+.info-card-toggle:hover { color: var(--ink); background: #fff; }
+.brand {
+  top: 22px;
+  left: 28px;
+  max-width: 240px;
+  padding: 10px 42px 10px 12px;
+  border-radius: 16px;
+  background: #fff8f4c7;
+  box-shadow: 0 8px 20px #4a2a1414;
+  backdrop-filter: blur(10px);
+}
+.brand.is-collapsed { padding: 8px 44px 8px 10px; }
 .eyebrow {
   margin: 0;
   color: var(--coral);
@@ -45,10 +75,14 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   top: 24px;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  gap: 8px;
-  pointer-events: none;
+  padding: 5px 38px 5px 5px;
+  border-radius: 999px;
+  background: #fff8f4a8;
+  box-shadow: 0 8px 20px #4a2a1414;
+  backdrop-filter: blur(10px);
 }
+.progress-pill .info-card-content { display: flex; gap: 8px; }
+.progress-pill.is-collapsed { padding: 5px 38px 5px 5px; }
 .progress-pill span, .mode {
   background: #fffdfae8;
   border: 1px solid #fff;
@@ -68,6 +102,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   color: var(--muted);
   font-size: 13px;
 }
+.banner.info-card, .ribbon.info-card {
+  padding-right: 44px;
+  min-height: 38px;
+}
+.banner.info-card .info-card-content, .ribbon.info-card .info-card-content { display: block; }
+.banner.info-card.is-collapsed, .ribbon.info-card.is-collapsed { padding-right: 44px; }
 .ribbon { color: var(--ink); }
 
 .side {
@@ -83,6 +123,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   box-shadow: 0 18px 50px #4a2a1424;
   backdrop-filter: blur(16px);
 }
+.side.info-card { padding-top: 50px; }
+.side.info-card.is-collapsed { padding: 14px 50px 14px 14px; }
 .side h2 { margin: 14px 0 6px; font-size: 13px; letter-spacing: 0.08em; }
 .who, .texty, .card button, .interact {
   border: 1px solid var(--line);
@@ -197,7 +239,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   .progress-pill { left: 28px; transform: none; }
   .pet-room-3d { height: 230px; }
   .camera-controls button { min-width: 34px; min-height: 34px; }
-  .island-camera-controls { top: 12px; right: 12px; bottom: auto; left: auto; }
+  .island-camera-controls { top: 0; right: 0; bottom: auto; left: auto; border-top-right-radius: 0; border-bottom-right-radius: 0; }
 }
 
 .gate {
@@ -333,7 +375,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 }
 .camera-zoom-controls button { width: 28px; height: 26px; font-size: 17px; }
 .camera-zoom-controls span { font-size: 10px; color: var(--muted); writing-mode: vertical-rl; }
-.island-camera-controls { top: 22px; right: 312px; left: auto; }
+.island-camera-controls { top: 0; right: 0; left: auto; border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .pet-expression {
   position: absolute;
   z-index: 2;
