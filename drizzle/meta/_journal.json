@@ -29,6 +29,13 @@
       "when": 1792860273374,
       "tag": "0003_add_pet_eggs",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792860273375,
+      "tag": "0004_user_owned_progress",
+      "breakpoints": true
     }
   ]
 }

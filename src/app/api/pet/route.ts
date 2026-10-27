@@ -1,10 +1,9 @@
-import { eq } from "drizzle-orm";
-import { buyEgg, discardPet, feedPet, hatchEgg, mergeProgress, normalizeProgress, stationOrder } from "@/game/progress";
-import { emptyProgress, type IslandProgress, type PetSpecies } from "@/game/types";
-import { islandProgress } from "@/db/schema";
+import { buyEgg, discardPet, feedPet, hatchEgg, normalizeProgress } from "@/game/progress";
+import { type IslandProgress, type PetSpecies } from "@/game/types";
 import { getAuth, isAuthConfigured } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { loadQuestions } from "@/server/questions";
+import { readUserProgressForTransaction, recordScoreTransaction, syncUserPetData, syncUserScore } from "@/server/progress-store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -36,21 +35,13 @@ export async function POST(request: Request) {
 
   const questions = loadQuestions();
   return db.transaction(async (tx) => {
-    const rows = await tx.select().from(islandProgress).where(eq(islandProgress.id, 1)).limit(1);
-    const current: IslandProgress = rows[0]
-      ? mergeProgress(stationOrder(questions), [emptyProgress(), rows[0]])
-      : emptyProgress();
-    const clientPets = mergeProgress(stationOrder(questions), [emptyProgress(), normalizeProgress(body.progress)]).pets;
-    current.pets = mergeProgress(stationOrder(questions), [current, { ...emptyProgress(), pets: clientPets }]).pets;
+    const { progress: current } = await readUserProgressForTransaction(tx, playerId, questions);
     const next = applyAction(current, body, playerId);
     if (!next) return Response.json({ error: "pet_action_unavailable" }, { status: 409 });
-    await tx
-      .insert(islandProgress)
-      .values({ id: 1, solved: next.solved, scores: next.scores, names: next.names, pets: next.pets, eggs: next.eggs })
-      .onConflictDoUpdate({
-        target: islandProgress.id,
-        set: { solved: next.solved, scores: next.scores, names: next.names, pets: next.pets, eggs: next.eggs, updatedAt: new Date() },
-      });
+    await syncUserScore(tx, playerId, next.scores[playerId] ?? 0);
+    const scoreDelta = (next.scores[playerId] ?? 0) - (current.scores[playerId] ?? 0);
+    if (scoreDelta !== 0) await recordScoreTransaction(tx, playerId, scoreDelta, body.action === "feed" ? "feed_pet" : "buy_egg", typeof body.petId === "string" ? body.petId : typeof body.eggId === "string" ? body.eggId : undefined);
+    await syncUserPetData(tx, playerId, next);
     return Response.json({ progress: next, persisted: true });
   });
 }

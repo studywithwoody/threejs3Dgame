@@ -23,7 +23,6 @@ import {
   MAX_PETS,
   EGG_COST,
   loadProgress,
-  mergeProgress,
   nextStation,
   normalizeProgress,
   saveProgress,
@@ -245,16 +244,13 @@ export function Shell() {
       setProfileOpen(!profile.avatarModel);
       setNotifications([]);
       apiRef.current?.enter(profile);
-      let current = progressRef.current;
+      let current = status?.databaseConfigured ? emptyProgress() : progressRef.current;
       if (status?.databaseConfigured) {
-        const remote = await fetchSharedProgress();
+        const remote = await fetchUserProgress();
         if (remote && ticket === generation.current) {
-          const merged = mergeProgress(orderRef.current, [emptyProgress(), remote]);
-          if (signature(merged) !== signature(current)) {
-            current = merged;
-            saveProgress(merged);
-            setProgress(merged);
-          }
+          current = remote;
+          saveProgress(remote);
+          setProgress(remote);
         }
       }
       if (ticket !== generation.current) return;
@@ -264,14 +260,7 @@ export function Shell() {
         {
           profile,
           order: orderRef.current,
-          onProgress: (incoming) => {
-            setProgress((prev) => {
-              const merged = mergeProgress(orderRef.current, [prev, incoming]);
-              if (signature(merged) === signature(prev)) return prev;
-              saveProgress(merged);
-              return merged;
-            });
-          },
+          onProgress: () => {},
           onPose: (pose) => apiRef.current?.upsertRemote(pose),
           onLeave: (id) => apiRef.current?.removeRemote(id),
           onRoster: (people) => setRoster(people),
@@ -293,13 +282,11 @@ export function Shell() {
     if (!me || !status?.databaseConfigured) return;
     let stop = false;
     const pull = async () => {
-      const remote = await fetchSharedProgress();
+      const remote = await fetchUserProgress();
       if (stop || !remote) return;
-      const merged = mergeProgress(orderRef.current, [emptyProgress(), remote]);
-      if (signature(merged) === signature(progressRef.current)) return;
-      saveProgress(merged);
-      setProgress(merged);
-      netRef.current?.sendProgress(merged);
+      if (signature(remote) === signature(progressRef.current)) return;
+      saveProgress(remote);
+      setProgress(remote);
     };
     const timer = window.setInterval(() => void pull(), 10000);
     return () => {
@@ -359,17 +346,12 @@ export function Shell() {
         setQuizNote(response.status === 401 ? "請先用 Google 登入再作答。" : "沒有送出，請再試一次。");
         return;
       }
-      const merged = mergeProgress(
-        order,
-        data.persisted
-          ? [emptyProgress(), normalizeProgress(data.progress)]
-          : [progressRef.current, normalizeProgress(data.progress)],
-      );
-      if (signature(merged) !== signature(progressRef.current)) {
-        saveProgress(merged);
-        progressRef.current = merged;
-        setProgress(merged);
-        netRef.current?.sendProgress(merged);
+      const next = normalizeProgress(data.progress);
+      if (signature(next) !== signature(progressRef.current)) {
+        saveProgress(next);
+        progressRef.current = next;
+        setProgress(next);
+        netRef.current?.sendProgress(next);
       }
       if (data.correct) {
         setVerdict("correct");
@@ -1064,7 +1046,7 @@ function choiceClass(index: number, picked: number | null, verdict: "idle" | "wr
   return "";
 }
 
-async function fetchSharedProgress() {
+async function fetchUserProgress() {
   try {
     const response = await fetch("/api/progress", { cache: "no-store" });
     if (!response.ok) return null;

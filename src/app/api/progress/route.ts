@@ -1,14 +1,19 @@
 import { emptyProgress } from "@/game/types";
+import { getAuth, isAuthConfigured } from "@/lib/auth";
 import { loadQuestions } from "@/server/questions";
-import { readSharedProgress } from "@/server/progress-store";
+import { readUserProgress } from "@/server/progress-store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   const questions = loadQuestions();
   try {
-    const progress = await readSharedProgress(questions);
+    const auth = getAuth();
+    const session = auth ? await auth.api.getSession({ headers: request.headers }) : null;
+    if (isAuthConfigured() && !session?.user) return Response.json({ error: "sign_in_required" }, { status: 401 });
+    if (!session?.user) return Response.json({ progress: emptyProgress(), persisted: false });
+    const progress = await readUserProgress(session.user.id, questions);
     if (!progress) return Response.json({ progress: emptyProgress(), persisted: false });
     return Response.json({ progress, persisted: true });
   } catch (error) {

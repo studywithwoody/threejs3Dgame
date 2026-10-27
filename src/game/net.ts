@@ -1,4 +1,3 @@
-import { loadProgress, mergeProgress, normalizeProgress, saveProgress, signature } from "@/game/progress";
 import { SPAWN } from "@/game/terrain";
 import type { IslandProgress, Pose, Profile } from "@/game/types";
 
@@ -45,7 +44,6 @@ export async function connectIsland(
 function connectBroadcast(handlers: Handlers): RealtimeTransport {
   const channel = new BroadcastChannel(CHANNEL);
   let profile = handlers.profile;
-  let progress = loadProgress();
   const poseNow = { x: SPAWN.x, z: SPAWN.z, ry: 0 };
   const roster = new Map<string, Profile & { seen: number }>();
 
@@ -55,17 +53,6 @@ function connectBroadcast(handlers: Handlers): RealtimeTransport {
       if (now - person.seen > 8000) roster.delete(id);
     }
     handlers.onRoster([profile, ...roster.values()]);
-  };
-
-  const acceptProgress = (incoming: IslandProgress, echo: boolean) => {
-    const merged = mergeProgress(handlers.order, [progress, normalizeProgress(incoming)]);
-    if (signature(merged) === signature(progress)) return;
-    progress = merged;
-    saveProgress(merged);
-    handlers.onProgress(merged);
-    if (echo && signature(merged) !== signature(normalizeProgress(incoming))) {
-      channel.postMessage({ type: "progress", payload: merged });
-    }
   };
 
   channel.onmessage = (event: MessageEvent) => {
@@ -80,12 +67,8 @@ function connectBroadcast(handlers: Handlers): RealtimeTransport {
       roster.set(payload.id, { ...payload, seen: Date.now() });
       publishRoster();
       if (data.type === "hello") {
-        if (payload.progress) acceptProgress(payload.progress, true);
         channel.postMessage({ type: "pose", payload: { ...profile, ...poseNow } });
-        channel.postMessage({ type: "progress", payload: progress });
       }
-    } else if (data.type === "progress") {
-      acceptProgress(payload as unknown as IslandProgress, true);
     }
   };
 
@@ -100,7 +83,7 @@ function connectBroadcast(handlers: Handlers): RealtimeTransport {
     publishRoster();
   }, 2000);
 
-  channel.postMessage({ type: "hello", payload: { ...profile, ...poseNow, progress } });
+  channel.postMessage({ type: "hello", payload: { ...profile, ...poseNow } });
   publishRoster();
 
   return {
@@ -112,8 +95,7 @@ function connectBroadcast(handlers: Handlers): RealtimeTransport {
       channel.postMessage({ type: "pose", payload: { ...profile, ...pose } });
     },
     sendProgress(state) {
-      acceptProgress(state, false);
-      channel.postMessage({ type: "progress", payload: progress });
+      void state;
     },
     updateProfile(next) {
       profile = next;
