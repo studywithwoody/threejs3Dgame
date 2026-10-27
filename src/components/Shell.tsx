@@ -21,7 +21,7 @@ import {
   STORAGE_KEY,
 } from "@/game/progress";
 import { PLACES } from "@/game/terrain";
-import { emptyProgress, type ChatMessage, type IslandProgress, type Profile } from "@/game/types";
+import { emptyProgress, type IslandProgress, type Profile } from "@/game/types";
 
 type Status = {
   authConfigured: boolean;
@@ -58,7 +58,6 @@ export function Shell() {
   const meRef = useRef<Profile | null>(null);
   const progressRef = useRef<IslandProgress>(emptyProgress());
   const orderRef = useRef<string[]>([]);
-  const lastChat = useRef(0);
 
   const [status, setStatus] = useState<Status | null>(null);
   const [questions, setQuestions] = useState<PublicQuestion[] | null>(null);
@@ -68,8 +67,6 @@ export function Shell() {
   const [me, setMe] = useState<Profile | null>(null);
   const [progress, setProgress] = useState<IslandProgress>(emptyProgress);
   const [roster, setRoster] = useState<Profile[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<NetMode | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [nearby, setNearby] = useState<string | null>(null);
@@ -78,7 +75,6 @@ export function Shell() {
   const [verdict, setVerdict] = useState<"idle" | "wrong" | "correct">("idle");
   const [submitting, setSubmitting] = useState(false);
   const [quizNote, setQuizNote] = useState<string | null>(null);
-  const [chatOpen, setChatOpen] = useState(true);
   const [guestName, setGuestName] = useState("");
   const [guestColor, setGuestColor] = useState<string>(AVATAR_COLORS[0]);
   const [nickDraft, setNickDraft] = useState("");
@@ -86,7 +82,6 @@ export function Shell() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
-  const logRef = useRef<HTMLDivElement>(null);
 
   const order = useMemo(() => (questions ? stationOrder(questions) : []), [questions]);
   orderRef.current = order;
@@ -123,8 +118,6 @@ export function Shell() {
       }
     }
     setProgress(loadProgress());
-    const narrow = window.matchMedia("(max-width: 860px)").matches;
-    if (narrow) setChatOpen(false);
 
     fetch("/api/status")
       .then((response) => response.json())
@@ -155,10 +148,6 @@ export function Shell() {
     apiRef.current?.applyProgress(progress);
   }, [progress]);
 
-  useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
-  }, [messages, chatOpen]);
-
   const leaveGame = useCallback(() => {
     generation.current += 1;
     netRef.current?.close();
@@ -176,7 +165,6 @@ export function Shell() {
       netRef.current?.close();
       setMe(profile);
       setBanner(null);
-      setMessages([]);
       apiRef.current?.enter(profile);
       let current = progressRef.current;
       if (status?.databaseConfigured) {
@@ -204,10 +192,6 @@ export function Shell() {
               saveProgress(merged);
               return merged;
             });
-          },
-          onChat: (message) => {
-            setMessages((prev) => [...prev.slice(-79), message]);
-            apiRef.current?.showBubble(message.id, message.text);
           },
           onPose: (pose) => apiRef.current?.upsertRemote(pose),
           onLeave: (id) => apiRef.current?.removeRemote(id),
@@ -355,16 +339,6 @@ export function Shell() {
     }
   }
 
-  function sendChat() {
-    const text = draft.replace(/\s+/g, " ").trim().slice(0, 180);
-    if (!text || !me) return;
-    const now = Date.now();
-    if (now - lastChat.current < 450) return;
-    lastChat.current = now;
-    netRef.current?.sendChat(text);
-    setDraft("");
-  }
-
   function startGuest() {
     const name = cleanNickname(guestName) || "訪客";
     const id = guestId();
@@ -475,47 +449,6 @@ export function Shell() {
 
       {me ? <Joystick /> : null}
 
-      {me ? (
-        <section className={`chat ${chatOpen ? "open" : ""}`}>
-          <button className="chat-toggle" type="button" onClick={() => setChatOpen((open) => !open)}>
-            聊天 {messages.length > 0 ? messages.length : ""}
-          </button>
-          {chatOpen ? (
-            <>
-              <div className="log" ref={logRef} aria-live="polite">
-                {messages.length === 0 ? <p className="muted">跟島上的同學說說話。</p> : null}
-                {messages.map((message, index) => (
-                  <p key={`${message.t}-${message.id}-${index}`}>
-                    <b>{message.name}</b> {message.text}
-                  </p>
-                ))}
-              </div>
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  sendChat();
-                }}
-              >
-                <input
-                  value={draft}
-                  maxLength={180}
-                  placeholder="輸入訊息"
-                  aria-label="聊天訊息"
-                  onChange={(event) => setDraft(event.target.value)}
-                  onFocus={() => {
-                    uiBridge.typing = true;
-                  }}
-                  onBlur={() => {
-                    uiBridge.typing = false;
-                  }}
-                />
-                <button type="submit">送出</button>
-              </form>
-            </>
-          ) : null}
-        </section>
-      ) : null}
-
       {showGate ? (
         <div className="gate">
           <section className="card" role="dialog" aria-labelledby="gate-title">
@@ -557,7 +490,7 @@ export function Shell() {
                 <button className="primary" type="button" onClick={startGuest}>
                   以訪客進入
                 </button>
-                <p className="note">同一個瀏覽器的分頁看得到彼此。跨裝置的即時位置與聊天之後才會接上。</p>
+                <p className="note">同一個瀏覽器的分頁看得到彼此。跨裝置的即時位置之後才會接上。</p>
               </>
             )}
           </section>

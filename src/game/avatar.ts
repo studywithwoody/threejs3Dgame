@@ -18,10 +18,7 @@ export type Avatar = {
   body: THREE.Mesh;
   label: HTMLElement;
   photo: HTMLImageElement;
-  bubble: HTMLElement;
-  bubbleTimer: number;
   setProfile: (profile: Profile) => void;
-  say: (text: string) => void;
   dispose: () => void;
 };
 
@@ -66,23 +63,16 @@ export function makeAvatar(profile: Profile): Avatar {
   photo.alt = "";
   photo.referrerPolicy = "no-referrer";
   const name = document.createElement("span");
-  const bubble = document.createElement("b");
-  bubble.className = "bubble";
-  bubble.hidden = true;
-  labelEl.append(photo, name, bubble);
+  labelEl.append(photo, name);
   const label = new CSS2DObject(labelEl);
   label.position.set(0, 2.05, 0);
   group.add(label);
-
-  let bubbleTimer = 0;
 
   const avatar: Avatar = {
     group,
     body,
     label: labelEl,
     photo,
-    bubble,
-    bubbleTimer,
     setProfile(next) {
       cloth.color.set(next.color);
       name.textContent = next.name;
@@ -94,16 +84,7 @@ export function makeAvatar(profile: Profile): Avatar {
         photo.hidden = true;
       }
     },
-    say(text) {
-      bubble.textContent = text;
-      bubble.hidden = false;
-      window.clearTimeout(bubbleTimer);
-      bubbleTimer = window.setTimeout(() => {
-        bubble.hidden = true;
-      }, 5600);
-    },
     dispose() {
-      window.clearTimeout(bubbleTimer);
       cloth.dispose();
       shoeL.geometry.dispose();
       labelEl.remove();
