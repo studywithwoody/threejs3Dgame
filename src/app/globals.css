@@ -197,7 +197,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   .progress-pill { left: 28px; transform: none; }
   .pet-room-3d { height: 230px; }
   .camera-controls button { min-width: 34px; min-height: 34px; }
-  .island-camera-controls { top: auto; bottom: 142px; left: 12px; }
+  .island-camera-controls { top: 12px; right: 12px; bottom: auto; left: auto; }
 }
 
 .gate {
@@ -333,7 +333,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 }
 .camera-zoom-controls button { width: 28px; height: 26px; font-size: 17px; }
 .camera-zoom-controls span { font-size: 10px; color: var(--muted); writing-mode: vertical-rl; }
-.island-camera-controls { top: 116px; left: 28px; }
+.island-camera-controls { top: 22px; right: 312px; left: auto; }
 .pet-expression {
   position: absolute;
   z-index: 2;
