@@ -110,11 +110,11 @@ Preview 網址（`https://something.vercel.app`）每次分支不同。要在某
 
 ### `DATABASE_URL_UNPOOLED`
 
-- 用途：只給本機執行 `npm run db:migrate`。執行中的網站不會讀它。
+- 用途：只給 migration。執行中的網站不會讀它。本機的 `npm run db:migrate`，以及 `main` 上的自動 migration，都用這條。
 - 誰看得到：僅伺服器。選填，但建議填。
 - 怎麼取得：同一個 **Connect** 視窗，把連線字串改成 **Direct connection**。主機名稱沒有 `-pooler`。Neon 的 Vercel integration 把這條叫做 `DATABASE_URL_UNPOOLED`。
 - 沒填時，migration 會退回使用 `DATABASE_URL`。Pooled 連線偶爾會讓 migration 失敗，所以建議還是填直接連線。
-- 放哪裡：`.env.local`。Vercel 上若 integration 已經寫入，留著即可；平常不必在 Vercel 跑 migration。
+- 放哪裡：`.env.local`，以及 GitHub 倉庫 **Settings → Secrets and variables → Actions** 的密鑰 `DATABASE_URL_UNPOOLED`。Vercel 上若 integration 已經寫入，留著即可；不必在 Vercel 跑 migration。
 
 ## 資料表與 migration
 
@@ -126,11 +126,26 @@ Better Auth 需要 `user`、`session`、`account`、`verification`。全班進�
 npm run db:migrate
 ```
 
-這會用 `DATABASE_URL_UNPOOLED`（沒有則用 `DATABASE_URL`）把 `drizzle/` 裡的 SQL 送到 Neon。資料庫只由伺服器存取，不需要 RLS 腳本。
+這會用 `DATABASE_URL_UNPOOLED`（沒有則用 `DATABASE_URL`）把 `drizzle/` 裡的 SQL 送到 Neon。沒有 `.env.local` 時改讀環境變數；同一個變數若環境裡已經有值，以環境為準。自動套用見下一節。資料庫只由伺服器存取，不需要 RLS 腳本。
 
 答題由 `POST /api/answer` 在伺服器核對 `data/questions.json` 的答案，再寫進 `island_progress`。瀏覽器拿不到正確選項的索引。沒有登入 session、但 Google 登入已設定時，這個路由會回 401。
 
 確認登入服務有起來：設定完成並重啟後，`GET /api/auth/ok` 應回 `{"status":"ok"}`。沒設定時，`/api/auth/*` 會回 **503** 和 `auth_not_configured`，頁面不會整個壞掉。`GET /api/status` 會列出還沒填的變數名稱，不會回傳密鑰內容。
+
+## 自動 migration
+
+`drizzle.config.ts` 連線時先讀 `DATABASE_URL_UNPOOLED`，沒有才用 `DATABASE_URL`。改表請照這個順序：
+
+1. 改 `src/db/schema.ts`。帳號表在 `src/db/auth-schema.ts`。
+2. 本機執行 `npm run db:generate`，把 `drizzle/` 裡新的 SQL 和 `drizzle/meta` 一起提交。
+3. 合併到 `main`。這次提交若動到 `drizzle/`、`drizzle.config.ts` 或 `src/db/`，GitHub Actions 的 **Migrate database** 會對 Neon 正式庫執行 `npm run db:migrate`。連線用倉庫密鑰 `DATABASE_URL_UNPOOLED`（直接連線，主機名稱沒有 `-pooler`）。不要用 pooled 連線跑 migration。
+4. Vercel 仍會部署 `main`，部署本身不跑 migration。`npm run db:migrate` 與 `drizzle-kit migrate` 一樣，只套用還沒記在 `drizzle.__drizzle_migrations` 的檔案，不會重建或清空資料表。
+
+密鑰名稱是 `DATABASE_URL_UNPOOLED`，放在倉庫的 Actions secrets。工作流程不會把連線字串印出來。同一個 concurrency group 會讓兩次 migration 排隊，不會同時跑。
+
+要手動再跑一次：打開 **Actions** → **Migrate database** → **Run workflow**，分支選 `main`。選別的分支會直接失敗，避免把還沒合併的 SQL 送進正式庫。
+
+Pull request 若改了 schema、`drizzle/` 或 `drizzle.config.ts`，**Check migrations** 會跑 `npm run db:check`，再跑 `npm run db:generate`，確認沒有未提交的 migration。這一步不連資料庫。
 
 ## 學生怎麼玩
 
@@ -155,7 +170,7 @@ npm run db:migrate
 
 ## 部署
 
-專案已接在 Vercel，**production branch 是 `main`**，正式網址是 <https://threejs3dgame.vercel.app>。推上 `main` 會部署正式站，其他分支是 preview。
+專案已接在 Vercel，**production branch 是 `main`**，正式網址是 <https://threejs3dgame.vercel.app>。推上 `main` 會部署正式站，其他分支是 preview。Vercel 只負責建置與發布，不跑資料庫 migration；正式庫見「自動 migration」。
 
 框架是 Next.js，Vercel 會讀 `npm run build`。請先在 Vercel 把上面的變數設好再給學生網址；沒設也能建置成功，只是會停在「驗證尚未設定」的訪客模式。
 
@@ -175,13 +190,15 @@ npm run db:migrate
 
 - **Next.js** 放頁面，以及 Vercel 上的 Better Auth 路由 `app/api/auth/[...all]`。
 - **Better Auth** 加 Google 社交登入。暱稱與角色顏色在 `user` 表。
-- **Neon Postgres** 與 **Drizzle**。執行期用 pooled `DATABASE_URL` 和 postgres.js（`prepare: false`）；migration 用 `DATABASE_URL_UNPOOLED`。
+- **Neon Postgres** 與 **Drizzle**。執行期用 pooled `DATABASE_URL` 和 postgres.js（`prepare: false`）；migration 用 `DATABASE_URL_UNPOOLED`，合併到 `main` 後由 GitHub Actions 套用。
 - **Three.js** 畫島和角色。
 - 即時多人同步先不接。同一個瀏覽器的分頁用 `BroadcastChannel`。
 
 ## English
 
-Dawn Isle is a third-person Three.js island for a class. Students sign in with Google through Better Auth. Neon Postgres stores users, nicknames, avatar colors, and shared station progress. The server re-checks answers before writing scores. Live multiplayer is not connected yet; same-browser tabs still see each other through `BroadcastChannel`. Without env vars the site still builds and falls back to guest mode. Copy `.env.example` to `.env.local`, then run `npm run db:migrate` (uses `DATABASE_URL_UNPOOLED`, or `DATABASE_URL` if that is unset). Production URL: `https://threejs3dgame.vercel.app`. Google redirect URIs:
+Dawn Isle is a third-person Three.js island for a class. Students sign in with Google through Better Auth. Neon Postgres stores users, nicknames, avatar colors, and shared station progress. The server re-checks answers before writing scores. Live multiplayer is not connected yet; same-browser tabs still see each other through `BroadcastChannel`. Without env vars the site still builds and falls back to guest mode. Copy `.env.example` to `.env.local`, then run `npm run db:migrate` (uses `DATABASE_URL_UNPOOLED`, or `DATABASE_URL` if that is unset). If `.env.local` is missing, the same command reads those variables from the environment. Production URL: `https://threejs3dgame.vercel.app`. Google redirect URIs:
 
 - `http://localhost:3000/api/auth/callback/google`
 - `https://threejs3dgame.vercel.app/api/auth/callback/google`
+
+To change the schema, edit `src/db/schema.ts`, run `npm run db:generate`, commit `drizzle/`, and merge to `main`. The **Migrate database** workflow then runs `npm run db:migrate` on Neon with the `DATABASE_URL_UNPOOLED` GitHub secret (direct connection, not the pooled URL). That command applies only pending files in `drizzle/` and does not drop or recreate tables. Vercel still deploys `main` and does not migrate. Run it by hand from **Actions → Migrate database → Run workflow** and choose `main`. Pull requests that touch the schema or `drizzle/` also run **Check migrations**, which does not connect to a database. The workflow never prints the connection string.
