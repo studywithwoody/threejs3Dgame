@@ -69,7 +69,7 @@ export function mountIsland(host: HTMLElement): GameApi {
   let z = SPAWN.z;
   let ry = 0;
   let cameraYaw = 0;
-  let cameraPitch = 0.08;
+  let cameraPitch = 0.4;
   let distance = 12;
   let playerY = 0;
   let jumpVelocity = 0;
@@ -205,7 +205,7 @@ export function mountIsland(host: HTMLElement): GameApi {
       local.group.position.set(x, playerY + bob, z);
       local.group.rotation.y = ry;
       local.update(dt);
-      const cameraTargetY = playerY + 1.45;
+      const cameraTargetY = playerY + 1.35;
       const horizontalDistance = Math.cos(cameraPitch) * distance;
       desired.set(
         x - Math.sin(cameraYaw) * horizontalDistance,
@@ -260,7 +260,7 @@ export function mountIsland(host: HTMLElement): GameApi {
       jumpVelocity = 0;
       grounded = true;
       cameraYaw = 0;
-      cameraPitch = 0.08;
+      cameraPitch = 0.4;
       distance = 12;
       if (!local) {
         local = makeAvatar(next);
@@ -332,7 +332,7 @@ export function mountIsland(host: HTMLElement): GameApi {
     },
     resetCamera() {
       cameraYaw = 0;
-      cameraPitch = 0.08;
+      cameraPitch = 0.4;
       distance = 12;
     },
     dispose() {
