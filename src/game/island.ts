@@ -3,7 +3,7 @@ import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { PLACES, groundY, islandRadius, isWalkable, nearestPlatformAnchor } from "@/game/terrain";
 import { platformerKitPath } from "@/game/platformerKit/registry";
-import { PLATFORMER_SCENE_OBJECTS, type SceneObject, type SceneRegion } from "@/game/platformerKit/sceneConfig";
+import { PLATFORMER_SCENE_OBJECTS, SCENE_EDITOR_OVERRIDES, type SceneObject, type SceneRegion } from "@/game/platformerKit/sceneConfig";
 
 const WOOD = "#b8743d";
 const WOOD_DARK = "#8a552c";
@@ -21,6 +21,7 @@ function std(color: string, extra: Partial<THREE.MeshStandardMaterialParameters>
 export type IslandWorld = {
   update: (time: number, solved: ReadonlySet<string>) => void;
   tryCollectCoin: (x: number, z: number) => boolean;
+  getEditableObjects: () => ReadonlyMap<string, THREE.Object3D>;
   dispose: () => void;
 };
 
@@ -115,6 +116,9 @@ export function buildIsland(scene: THREE.Scene): IslandWorld {
     tryCollectCoin(x, z) {
       return course.tryCollectCoin(x, z);
     },
+    getEditableObjects() {
+      return course.getEditableObjects();
+    },
     dispose() {
       for (const item of disposables) item.dispose();
     },
@@ -146,14 +150,30 @@ function buildReferenceScene(scene: THREE.Scene) {
     }
     void request.then((gltf) => {
       const model = gltf.scene.clone(true);
+      const override = SCENE_EDITOR_OVERRIDES[config.id];
+      const position = override?.position ?? config.position;
+      const rotation = override?.rotation ?? config.rotation;
+      const scale = override?.scale ?? config.scale;
       model.name = config.id;
-      model.rotation.set(...config.rotation);
-      model.scale.set(...config.scale);
+      model.rotation.set(...rotation);
+      model.scale.set(...scale);
+
+      if (override) {
+        model.position.set(...position);
+        model.traverse((child) => {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        });
+        regions.get(config.region)?.add(model);
+        instances.set(config.id, model);
+        initialY.set(config.id, model.position.y);
+        return;
+      }
 
       const isSupport = config.category === "terrain" || config.category === "snow" || config.category === "platform";
       const anchor = isSupport
-        ? { x: config.position[0], z: config.position[2], width: 0, depth: 0, top: config.position[1] }
-        : nearestPlatformAnchor(config.position[0], config.position[2]);
+        ? { x: position[0], z: position[2], width: 0, depth: 0, top: position[1] }
+        : nearestPlatformAnchor(position[0], position[2]);
 
       // GLB files have different local origins. Measure the scaled and
       // rotated model at Y=0, then move its lowest point onto the platform.
@@ -176,7 +196,7 @@ function buildReferenceScene(scene: THREE.Scene) {
         bounds = new THREE.Box3().setFromObject(model);
       }
       model.position.y = isSupport
-        ? config.position[1]
+        ? position[1]
         : anchor.top - bounds.min.y + 0.015;
       model.traverse((child) => {
         child.castShadow = true;
@@ -191,6 +211,9 @@ function buildReferenceScene(scene: THREE.Scene) {
   }
 
   return {
+    getEditableObjects() {
+      return instances;
+    },
     update(time: number) {
       for (const config of collectibles) {
         const model = instances.get(config.id);

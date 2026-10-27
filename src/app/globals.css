@@ -20,6 +20,23 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 .app { position: relative; height: 100dvh; overflow: hidden; background: #f3e4d6; }
 .stage-host { position: absolute; inset: 0; z-index: 0; isolation: isolate; }
 .stage-host canvas { display: block; width: 100%; height: 100%; }
+.scene-editor-hud {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  z-index: 4;
+  min-width: 250px;
+  transform: translateX(-50%);
+  padding: 9px 13px;
+  border: 1px solid #ffffff;
+  border-radius: 12px;
+  background: #211d1de8;
+  color: #fff8f4;
+  box-shadow: 0 8px 24px #4a2a1438;
+  font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-line;
+  pointer-events: none;
+}
 .labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .vignette {
   position: absolute;

@@ -1,4 +1,5 @@
 import type { PlatformerKitCategory } from "./registry";
+import overrides from "./scene-editor-overrides.json";
 
 export type SceneRegion = "forest" | "snow-mountain" | "snow-valley" | "highland" | "floating";
 
@@ -12,6 +13,14 @@ export interface SceneObject {
   scale: [number, number, number];
   collectible?: boolean;
 }
+
+export type SceneObjectTransform = {
+  position: [number, number, number];
+  rotation: [number, number, number];
+  scale: [number, number, number];
+};
+
+export const SCENE_EDITOR_OVERRIDES = overrides as Record<string, SceneObjectTransform>;
 
 const object = (
   id: string,

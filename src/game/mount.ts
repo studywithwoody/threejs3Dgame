@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
 import { makeAvatar, type Avatar } from "@/game/avatar";
 import { uiBridge } from "@/game/bridge";
 import { buildIsland } from "@/game/island";
@@ -61,6 +62,131 @@ export function mountIsland(host: HTMLElement): GameApi {
   orbitControls.target.set(0, 3, 4);
   orbitControls.update();
 
+  const editorGrid = new THREE.GridHelper(80, 80, "#e07a5f", "#ffffff");
+  editorGrid.position.y = -0.52;
+  editorGrid.visible = false;
+  scene.add(editorGrid);
+  const editorAxes = new THREE.AxesHelper(5);
+  editorAxes.visible = false;
+  scene.add(editorAxes);
+  const editorBox = new THREE.Box3();
+  const editorBoxHelper = new THREE.Box3Helper(editorBox, "#e07a5f");
+  editorBoxHelper.visible = false;
+  scene.add(editorBoxHelper);
+  const transformControls = new TransformControls(camera, canvas);
+  transformControls.setMode("translate");
+  transformControls.enabled = false;
+  scene.add(transformControls.getHelper());
+  const editorHud = document.createElement("div");
+  editorHud.className = "scene-editor-hud";
+  editorHud.hidden = true;
+  host.append(editorHud);
+  let editorEnabled = false;
+  let editorDragging = false;
+  let selectedEditorObject: THREE.Object3D | null = null;
+  let selectedEditorId: string | null = null;
+  let editorSaveTimer: number | null = null;
+
+  const updateEditorHud = () => {
+    if (!editorEnabled) return;
+    if (!selectedEditorObject || !selectedEditorId) {
+      editorHud.textContent = "場景編輯器 · 點擊素材以選取";
+      return;
+    }
+    const p = selectedEditorObject.position;
+    const r = selectedEditorObject.rotation;
+    const s = selectedEditorObject.scale;
+    editorHud.textContent = `場景編輯器 · ${selectedEditorId}\n位置 (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})\n旋轉 (${r.x.toFixed(2)}, ${r.y.toFixed(2)}, ${r.z.toFixed(2)}) · 縮放 (${s.x.toFixed(2)}, ${s.y.toFixed(2)}, ${s.z.toFixed(2)})\nW 移動 · E 旋轉 · R 縮放 · F2 關閉`;
+  };
+
+  const refreshEditorBounds = () => {
+    if (!selectedEditorObject) return;
+    editorBox.setFromObject(selectedEditorObject);
+    editorBoxHelper.updateMatrixWorld(true);
+    updateEditorHud();
+  };
+
+  const queueEditorSave = () => {
+    if (!selectedEditorObject || !selectedEditorId) return;
+    if (editorSaveTimer !== null) window.clearTimeout(editorSaveTimer);
+    editorSaveTimer = window.setTimeout(() => {
+      editorSaveTimer = null;
+      const object = selectedEditorObject;
+      const id = selectedEditorId;
+      if (!object || !id) return;
+      void fetch("/api/scene-editor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id,
+          position: object.position.toArray(),
+          rotation: [object.rotation.x, object.rotation.y, object.rotation.z],
+          scale: object.scale.toArray(),
+        }),
+      }).catch(() => {
+        // Keep the editor usable if the local save endpoint is unavailable.
+      });
+    }, 250);
+  };
+
+  const selectEditorObject = (object: THREE.Object3D | null, id: string | null) => {
+    selectedEditorObject = object;
+    selectedEditorId = id;
+    if (object) {
+      transformControls.attach(object);
+      editorBoxHelper.visible = true;
+      refreshEditorBounds();
+    } else {
+      transformControls.detach();
+      editorBoxHelper.visible = false;
+      updateEditorHud();
+    }
+  };
+
+  const setEditorEnabled = (enabled: boolean) => {
+    editorEnabled = enabled;
+    editorGrid.visible = enabled;
+    editorAxes.visible = enabled;
+    transformControls.enabled = enabled;
+    editorHud.hidden = !enabled;
+    if (!enabled) selectEditorObject(null, null);
+    updateEditorHud();
+  };
+
+  const editorRaycaster = new THREE.Raycaster();
+  const editorPointer = new THREE.Vector2();
+  const onEditorClick = (event: MouseEvent) => {
+    if (!editorEnabled || editorDragging) return;
+    const rect = canvas.getBoundingClientRect();
+    editorPointer.set(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    editorRaycaster.setFromCamera(editorPointer, camera);
+    const objects = world.getEditableObjects();
+    const hit = editorRaycaster.intersectObjects([...objects.values()], true)[0];
+    if (!hit) {
+      selectEditorObject(null, null);
+      return;
+    }
+    let root: THREE.Object3D | null = hit.object;
+    while (root && ![...objects.values()].includes(root)) root = root.parent;
+    const entry = root ? [...objects.entries()].find(([, value]) => value === root) : undefined;
+    selectEditorObject(root, entry?.[0] ?? null);
+  };
+
+  const onTransformChange = () => {
+    refreshEditorBounds();
+    queueEditorSave();
+  };
+  const onTransformDragging = (event: { value: unknown }) => {
+    editorDragging = event.value === true;
+    orbitControls.enabled = !editorDragging && !playing;
+  };
+  transformControls.addEventListener("change", onTransformChange);
+  transformControls.addEventListener("dragging-changed", onTransformDragging);
+  canvas.addEventListener("click", onEditorClick);
+
   const keys = new Set<string>();
   let playing = false;
   let profile: Profile | null = null;
@@ -101,6 +227,19 @@ export function mountIsland(host: HTMLElement): GameApi {
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (uiBridge.typing) return;
+    if (event.key === "F2") {
+      event.preventDefault();
+      setEditorEnabled(!editorEnabled);
+      return;
+    }
+    if (editorEnabled) {
+      if (event.key.toLowerCase() === "w") transformControls.setMode("translate");
+      if (event.key.toLowerCase() === "e") transformControls.setMode("rotate");
+      if (event.key.toLowerCase() === "r") transformControls.setMode("scale");
+      if (event.key === "Escape") selectEditorObject(null, null);
+      if (["w", "e", "r", "Escape"].includes(event.key)) event.preventDefault();
+      return;
+    }
     keys.add(event.key.toLowerCase());
     if (event.key === " " || event.key.startsWith("Arrow")) event.preventDefault();
     if (event.key === " " && playing && !uiBridge.typing && grounded) {
@@ -118,7 +257,7 @@ export function mountIsland(host: HTMLElement): GameApi {
   let dragging = false;
   let lastPointer = 0;
   const onPointerDown = (event: PointerEvent) => {
-    if (!playing || event.button !== 0) return;
+    if (editorEnabled || !playing || event.button !== 0) return;
     dragging = true;
     lastPointer = event.clientX;
   };
@@ -131,7 +270,7 @@ export function mountIsland(host: HTMLElement): GameApi {
     dragging = false;
   };
   const onWheel = (event: WheelEvent) => {
-    if (!playing) return;
+    if (editorEnabled || !playing) return;
     event.preventDefault();
     distance = THREE.MathUtils.clamp(distance + event.deltaY * 0.01, 7, 18);
   };
@@ -148,9 +287,10 @@ export function mountIsland(host: HTMLElement): GameApi {
     frame = requestAnimationFrame(tick);
     const dt = Math.min(clock.getDelta(), 0.05);
     const time = clock.elapsedTime;
-    world.update(time, solved);
+    if (!editorEnabled) world.update(time, solved);
+    if (editorEnabled) refreshEditorBounds();
 
-    if (!playing || !local || !profile) {
+    if (editorEnabled || !playing || !local || !profile) {
       orbitControls.enabled = true;
       orbitControls.update();
     } else {
@@ -359,7 +499,12 @@ export function mountIsland(host: HTMLElement): GameApi {
     dispose() {
       running = false;
       cancelAnimationFrame(frame);
+      if (editorSaveTimer !== null) window.clearTimeout(editorSaveTimer);
       orbitControls.dispose();
+      transformControls.removeEventListener("change", onTransformChange);
+      transformControls.removeEventListener("dragging-changed", onTransformDragging);
+      transformControls.dispose();
+      canvas.removeEventListener("click", onEditorClick);
       observer.disconnect();
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
@@ -372,6 +517,7 @@ export function mountIsland(host: HTMLElement): GameApi {
       renderer.dispose();
       canvas.remove();
       labels.remove();
+      editorHud.remove();
     },
   };
 
