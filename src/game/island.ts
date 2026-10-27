@@ -107,6 +107,7 @@ export function buildIsland(scene: THREE.Scene): IslandWorld {
   scene.add(terrain);
   keep(terrain.geometry);
   keep(terrain.material as THREE.Material);
+  buildGrassPatches(scene, keep);
 
   const trunkGeo = keep(new THREE.CylinderGeometry(0.12, 0.18, 0.9, 6));
   const crownGeo = keep(new THREE.ConeGeometry(0.72, 1.35, 7));
@@ -263,6 +264,52 @@ function buildTerrain() {
   );
   mesh.receiveShadow = true;
   return mesh;
+}
+
+function buildGrassPatches(scene: THREE.Scene, keep: <T extends { dispose: () => void }>(item: T) => T) {
+  const grassMat = std("#79b85b", { roughness: 1 });
+  keep(grassMat);
+  const patches = [
+    { x: 0, z: 10, rx: 4.8, rz: 3.55, phase: 0.2 },
+    { x: 7.2, z: 16.4, rx: 2.55, rz: 2.15, phase: 1.4 },
+    { x: -12.5, z: -0.6, rx: 2.65, rz: 2.15, phase: 2.7 },
+  ];
+  const segments = 20;
+  const rings = 3;
+
+  for (const patch of patches) {
+    const positions: number[] = [patch.x, groundY(patch.x, patch.z) + 0.045, patch.z];
+    const indices: number[] = [];
+    for (let ring = 1; ring <= rings; ring += 1) {
+      const radius = ring / rings;
+      for (let i = 0; i < segments; i += 1) {
+        const theta = (i / segments) * Math.PI * 2;
+        const edgeNoise = 1 + Math.sin(theta * 3 + patch.phase) * 0.06 + Math.cos(theta * 5 - patch.phase) * 0.035;
+        const x = patch.x + Math.cos(theta) * patch.rx * radius * edgeNoise;
+        const z = patch.z + Math.sin(theta) * patch.rz * radius * edgeNoise;
+        positions.push(x, groundY(x, z) + 0.045, z);
+      }
+    }
+    for (let i = 0; i < segments; i += 1) {
+      indices.push(0, 1 + i, 1 + ((i + 1) % segments));
+    }
+    for (let ring = 1; ring < rings; ring += 1) {
+      const currentStart = 1 + (ring - 1) * segments;
+      const nextStart = currentStart + segments;
+      for (let i = 0; i < segments; i += 1) {
+        const next = (i + 1) % segments;
+        indices.push(currentStart + i, nextStart + i, currentStart + next);
+        indices.push(currentStart + next, nextStart + i, nextStart + next);
+      }
+    }
+    const geometry = keep(new THREE.BufferGeometry());
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    const grass = new THREE.Mesh(geometry, grassMat);
+    grass.receiveShadow = true;
+    scene.add(grass);
+  }
 }
 
 function buildDock(scene: THREE.Scene, keep: <T extends { dispose: () => void }>(item: T) => T) {
