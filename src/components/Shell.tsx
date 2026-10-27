@@ -8,14 +8,12 @@ import PetRoom3D from "@/components/PetRoom3D";
 import CharacterPreview3D from "@/components/CharacterPreview3D";
 import { authClient } from "@/lib/auth-client";
 import { AVATAR_COLORS, cleanNickname, colorFromId, displayName } from "@/lib/profile";
-import { stationOrderRef, uiBridge } from "@/game/bridge";
+import { uiBridge } from "@/game/bridge";
 import { connectIsland, type IslandConnection, type NetMode } from "@/game/net";
 import type { GameApi } from "@/game/mount";
 import { setStick } from "@/game/mount";
 import { BLOCKY_MODELS } from "@/game/avatar";
-import { type PublicQuestion } from "@/game/questions";
 import {
-  canSolve,
   buyEgg,
   discardPet,
   feedPet,
@@ -23,14 +21,11 @@ import {
   MAX_PETS,
   EGG_COST,
   loadProgress,
-  nextStation,
   normalizeProgress,
   saveProgress,
   signature,
-  stationOrder,
   STORAGE_KEY,
 } from "@/game/progress";
-import { PLACES } from "@/game/terrain";
 import { emptyProgress, type IslandProgress, type PetSpecies, type PetState, type Profile } from "@/game/types";
 import { petStatus } from "@/game/progress";
 
@@ -40,14 +35,6 @@ type Status = {
   databaseConfigured: boolean;
   realtimeConfigured: boolean;
   urlConfigured: boolean;
-};
-
-type AnswerPayload = {
-  correct?: boolean;
-  reason?: string;
-  explain?: string;
-  progress?: IslandProgress;
-  persisted?: boolean;
 };
 
 type SessionUser = {
@@ -90,15 +77,10 @@ export function Shell() {
   const apiRef = useRef<GameApi | null>(null);
   const netRef = useRef<IslandConnection | null>(null);
   const generation = useRef(0);
-  const nearbyRef = useRef<string | null>(null);
-  const activeRef = useRef<string | null>(null);
   const meRef = useRef<Profile | null>(null);
   const progressRef = useRef<IslandProgress>(emptyProgress());
-  const orderRef = useRef<string[]>([]);
 
   const [status, setStatus] = useState<Status | null>(null);
-  const [questions, setQuestions] = useState<PublicQuestion[] | null>(null);
-  const [questionError, setQuestionError] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [sessionPending, setSessionPending] = useState(false);
   const [me, setMe] = useState<Profile | null>(null);
@@ -106,12 +88,6 @@ export function Shell() {
   const [roster, setRoster] = useState<Profile[]>([]);
   const [mode, setMode] = useState<NetMode | null>(null);
   const [notifications, setNotifications] = useState<IslandNotification[]>([]);
-  const [nearby, setNearby] = useState<string | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [picked, setPicked] = useState<number | null>(null);
-  const [verdict, setVerdict] = useState<"idle" | "wrong" | "correct">("idle");
-  const [submitting, setSubmitting] = useState(false);
-  const [quizNote, setQuizNote] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [guestColor, setGuestColor] = useState<string>(AVATAR_COLORS[0]);
   const [guestAvatar, setGuestAvatar] = useState<string>(BLOCKY_MODELS[0].id);
@@ -142,13 +118,8 @@ export function Shell() {
     ]);
   }, []);
 
-  const order = useMemo(() => (questions ? stationOrder(questions) : []), [questions]);
-  orderRef.current = order;
-  stationOrderRef.ids = order;
   progressRef.current = progress;
   meRef.current = me;
-  nearbyRef.current = nearby;
-  activeRef.current = activeId;
 
   const onSession = useCallback((next: SessionUser | null, pending: boolean) => {
     setUser(next);
@@ -156,12 +127,8 @@ export function Shell() {
   }, []);
 
   useEffect(() => {
-    uiBridge.onNearby = (id) => setNearby((prev) => (prev === id ? prev : id));
-    uiBridge.onInteract = () => {
-      if (activeRef.current) return;
-      const id = nearbyRef.current;
-      if (id) openStation(id);
-    };
+    uiBridge.onNearby = () => {};
+    uiBridge.onInteract = () => {};
     uiBridge.onPose = (pose) => netRef.current?.sendPose(pose);
   });
 
@@ -191,11 +158,6 @@ export function Shell() {
           urlConfigured: false,
         }),
       );
-
-    fetch("/api/questions", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data: { stations?: PublicQuestion[] }) => setQuestions(data.stations ?? []))
-      .catch(() => setQuestionError(true));
 
     const onStorage = (event: StorageEvent) => {
       if (event.key === STORAGE_KEY) setProgress(loadProgress());
@@ -231,7 +193,6 @@ export function Shell() {
     setMe(null);
     setRoster([]);
     setMode(null);
-    setActiveId(null);
   }, []);
 
   const enterGame = useCallback(
@@ -259,7 +220,7 @@ export function Shell() {
       const conn = await connectIsland(
         {
           profile,
-          order: orderRef.current,
+          order: [],
           onProgress: () => {},
           onPose: (pose) => apiRef.current?.upsertRemote(pose),
           onLeave: (id) => apiRef.current?.removeRemote(id),
@@ -296,7 +257,7 @@ export function Shell() {
   }, [me, status?.databaseConfigured]);
 
   useEffect(() => {
-    if (!status?.authConfigured || !questions) return;
+    if (!status?.authConfigured) return;
     if (!user) {
       if (sessionPending) return;
       if (meRef.current) leaveGame();
@@ -310,61 +271,7 @@ export function Shell() {
     setMe((prev) => (sameProfile(prev, profile) ? prev : profile));
     apiRef.current?.setProfile(profile);
     netRef.current?.updateProfile(profile);
-  }, [user, questions, status?.authConfigured, sessionPending, enterGame, leaveGame]);
-
-  function openStation(id: string) {
-    if (!meRef.current || !questions) return;
-    setActiveId(id);
-    setPicked(null);
-    setVerdict("idle");
-    setQuizNote(null);
-    setSubmitting(false);
-  }
-
-  async function choose(index: number) {
-    if (!activeId || !me || verdict === "correct" || submitting) return;
-    const question = questions?.find((item) => item.id === activeId);
-    if (!question) return;
-    if (!canSolve(order, progress.solved, question.id)) return;
-    setPicked(index);
-    setSubmitting(true);
-    setQuizNote(null);
-    try {
-      const response = await fetch("/api/answer", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          stationId: question.id,
-          choice: index,
-          playerId: me.id,
-          playerName: me.name,
-          progress: progressRef.current,
-        }),
-      });
-      const data = (await response.json()) as AnswerPayload;
-      if (!response.ok || !data.progress) {
-        setQuizNote(response.status === 401 ? "請先用 Google 登入再作答。" : "沒有送出，請再試一次。");
-        return;
-      }
-      const next = normalizeProgress(data.progress);
-      if (signature(next) !== signature(progressRef.current)) {
-        saveProgress(next);
-        progressRef.current = next;
-        setProgress(next);
-        netRef.current?.sendProgress(next);
-      }
-      if (data.correct) {
-        setVerdict("correct");
-        return;
-      }
-      if (data.reason === "locked" || data.reason === "solved") return;
-      setVerdict("wrong");
-    } catch {
-      setQuizNote("沒有送出，請再試一次。");
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  }, [user, status?.authConfigured, sessionPending, enterGame, leaveGame]);
 
   async function updatePetProgress(action: string, local: IslandProgress, extra: Record<string, string> = {}) {
     if (!me) return;
@@ -499,11 +406,6 @@ export function Shell() {
     void enterGame({ id, name, color: guestColor, avatarModel: guestAvatar, image: null });
   }
 
-  const active = questions?.find((item) => item.id === activeId) ?? null;
-  const place = PLACES.find((item) => item.id === activeId);
-  const unlocked = active ? progress.solved.includes(active.id) : false;
-  const available = active ? canSolve(order, progress.solved, active.id) : false;
-  const upcoming = nextStation(order, progress.solved);
   const score = me ? progress.scores[me.id] ?? 0 : 0;
   const myPets = me ? progress.pets[me.id] ?? [] : [];
   const myEggs = me ? progress.eggs[me.id] ?? [] : [];
@@ -547,9 +449,9 @@ export function Shell() {
         <InfoCardToggle label="島嶼進度" collapsed={Boolean(collapsedInfo.progress)} onToggle={() => toggleInfoCard("progress")} />
         <div className="info-card-content">
           <span>
-            <em>{progress.solved.length}</em> / {questions?.length ?? 5}
+            <em>{score}</em> 分
           </span>
-          <span>{score} 分</span>
+          <span>自由探索</span>
           {mode ? <span className="mode">{mode === "remote" ? "全班連線" : "本機分頁"}</span> : null}
         </div>
       </section>
@@ -569,13 +471,6 @@ export function Shell() {
                 <small>我的角色 · 名稱與顏色</small>
               </span>
             </button>
-            <div className="badges" aria-label="徽章">
-              {(questions ?? [])
-                .filter((question) => progress.solved.includes(question.id))
-                .map((question) => (
-                  <span key={question.id}>{question.badge}</span>
-                ))}
-            </div>
             <button className="room-button" type="button" onClick={() => { setPetNote(null); setRoomOpen(true); }}>
               <span className="pet-mini">{petEmoji(displayPet)}</span>
               <span><strong>我的房間</strong><small>{myPets.length} 隻寵物 · {myEggs.length} 顆蛋</small></span>
@@ -617,13 +512,6 @@ export function Shell() {
         </aside>
       ) : null}
 
-      {me && nearby ? (
-        <button className="interact" type="button" onClick={() => openStation(nearby)}>
-          調查{PLACES.find((item) => item.id === nearby)?.label}
-          <small>E</small>
-        </button>
-      ) : null}
-
       {me ? <Joystick /> : null}
 
       {showGate ? (
@@ -631,10 +519,8 @@ export function Shell() {
           <section className="card" role="dialog" aria-labelledby="gate-title">
             <p className="eyebrow">HELLO</p>
             <h2 id="gate-title">登上曙島</h2>
-            {!status || !questions ? (
+            {!status ? (
               <p>正在把島準備好…</p>
-            ) : questionError || questions.length === 0 ? (
-              <p>題目檔讀取失敗。請確認 <code>data/questions.json</code>。</p>
             ) : status.authConfigured ? (
               <>
                 <p>用 Google 帳號進來。島上會顯示你的名稱和頭像，暱稱可以再改。信件地址不會出現在畫面上。</p>
@@ -804,56 +690,7 @@ export function Shell() {
         </div>
       ) : null}
 
-      {active && place ? (
-        <div className="gate">
-          <section className="card quiz" role="dialog" aria-labelledby="quiz-title">
-            <p className="eyebrow">STAGE {String(active.stage).padStart(2, "0")}</p>
-            <h2 id="quiz-title">{active.title}</h2>
-            {unlocked ? (
-              <>
-                <p>{active.explain}</p>
-                <p className="badge-line">已獲得 {active.badge}</p>
-              </>
-            ) : available ? (
-              <>
-                <p>{active.prompt}</p>
-                <div className="choices">
-                  {active.choices.map((choice, index) => (
-                    <button
-                      key={`${active.id}-${index}`}
-                      type="button"
-                      className={choiceClass(index, picked, verdict)}
-                      onClick={() => void choose(index)}
-                      disabled={verdict === "correct" || submitting}
-                    >
-                      {choice}
-                    </button>
-                  ))}
-                </div>
-                {verdict === "wrong" ? <p className="warn">再想想，這次還沒對。</p> : null}
-                {quizNote ? <p className="warn">{quizNote}</p> : null}
-                {verdict === "correct" ? (
-                  <>
-                    <p>{active.explain}</p>
-                    <p className="badge-line">全班得到 {active.badge}，你 +10 分。</p>
-                  </>
-                ) : null}
-              </>
-            ) : (
-              <p>
-                這一站還沒開放。先到
-                {labelOf(upcoming)}
-                把上一題解開，燈才會繼續往前亮。
-              </p>
-            )}
-            <button type="button" onClick={() => setActiveId(null)}>
-              {verdict === "correct" ? "繼續探索" : "離開"}
-            </button>
-          </section>
-        </div>
-      ) : null}
-
-      <p className="hint">WASD 移動 · 拖曳旋轉鏡頭 · 靠近站點按 E</p>
+      <p className="hint">WASD 移動 · 拖曳旋轉鏡頭 · Shift 奔跑</p>
     </main>
   );
 
@@ -1040,17 +877,6 @@ function dedupePeople(me: Profile | null, roster: Profile[]) {
   if (me) map.set(me.id, me);
   for (const person of roster) map.set(person.id, person);
   return [...map.values()];
-}
-
-function labelOf(id: string | null) {
-  return PLACES.find((place) => place.id === id)?.label ?? "第一站";
-}
-
-function choiceClass(index: number, picked: number | null, verdict: "idle" | "wrong" | "correct") {
-  if (picked !== index) return "";
-  if (verdict === "correct") return "right";
-  if (verdict === "wrong") return "wrong";
-  return "";
 }
 
 async function fetchUserProgress() {

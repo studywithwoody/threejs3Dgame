@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import { CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import { makeAvatar, type Avatar } from "@/game/avatar";
-import { stationOrderRef, uiBridge } from "@/game/bridge";
+import { uiBridge } from "@/game/bridge";
 import { buildIsland } from "@/game/island";
-import { PLACES, SPAWN, groundY, isWalkable } from "@/game/terrain";
+import { SPAWN, groundY, isWalkable } from "@/game/terrain";
 import type { IslandProgress, Pose, Profile } from "@/game/types";
 import type { CameraAdjustment } from "@/components/CameraControls";
 
@@ -173,19 +173,8 @@ export function mountIsland(host: HTMLElement): GameApi {
       camera.position.lerp(desired, 1 - Math.exp(-dt * 4.5));
       camera.lookAt(x, cameraTargetY, z);
 
-      let closest: string | null = null;
-      let closestD = 2.35;
-      for (const place of PLACES) {
-        const d = Math.hypot(place.x - x, place.z - z);
-        if (d < closestD) {
-          closest = place.id;
-          closestD = d;
-        }
-      }
-      if (closest !== nearbyId) {
-        nearbyId = closest;
-        uiBridge.onNearby(closest);
-      }
+      nearbyId = null;
+      uiBridge.onNearby(null);
       const now = performance.now();
       if (moved && now - lastPoseAt > POSE_MS) {
         lastPoseAt = now;
@@ -257,16 +246,6 @@ export function mountIsland(host: HTMLElement): GameApi {
     },
     applyProgress(progress) {
       solved = new Set(progress.solved);
-      for (const place of PLACES) {
-        const ring = scene.getObjectByName(`ring-${place.id}`) as THREE.Mesh | undefined;
-        if (!ring) continue;
-        const material = ring.material as THREE.MeshStandardMaterial;
-        const done = solved.has(place.id);
-        const open = !done && isOpen(place.id);
-        material.color.set(done ? "#f6d56b" : open ? "#e07a5f" : "#b7a89a");
-        material.emissive.set(done ? "#f6d56b" : open ? "#e07a5f" : "#000000");
-        material.emissiveIntensity = done || open ? 0.55 : 0;
-      }
     },
     upsertRemote(player) {
       if (profile && player.id === profile.id) return;
@@ -327,13 +306,6 @@ export function mountIsland(host: HTMLElement): GameApi {
       labels.remove();
     },
   };
-
-  function isOpen(id: string) {
-    const order = stationOrderRef.ids.length ? stationOrderRef.ids : PLACES.map((place) => place.id);
-    const index = order.indexOf(id);
-    if (index < 0 || solved.has(id)) return false;
-    return order.slice(0, index).every((prev) => solved.has(prev));
-  }
 
   return api;
 }

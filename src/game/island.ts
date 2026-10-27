@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { PLACES, groundY, islandRadius, isWalkable } from "@/game/terrain";
 
 const WOOD = "#b8743d";
@@ -11,6 +12,8 @@ const GLASS = "#d7f3e6";
 const LEAF = "#6eaa58";
 const LEAF_DARK = "#3f7d45";
 const ROCK = "#b7a89a";
+const kitLoader = new GLTFLoader();
+const kitCache = new Map<string, Promise<import("three/examples/jsm/loaders/GLTFLoader.js").GLTF>>();
 
 function std(color: string, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) {
   return new THREE.MeshStandardMaterial({ color, roughness: 0.82, metalness: 0, ...extra });
@@ -28,8 +31,8 @@ export function buildIsland(scene: THREE.Scene): IslandWorld {
     return object;
   };
 
-  scene.background = new THREE.Color("#f4d8c8");
-  scene.fog = new THREE.Fog("#f3e4d6", 48, 125);
+  scene.background = new THREE.Color("#8bd7ef");
+  scene.fog = new THREE.Fog("#b9ebf2", 48, 125);
 
   const hemi = new THREE.HemisphereLight("#fff1e4", "#7ea56a", 1.15);
   scene.add(hemi);
@@ -180,14 +183,7 @@ export function buildIsland(scene: THREE.Scene): IslandWorld {
     scene.add(pad);
   }
 
-  const flowers = buildFlowers(scene, keep);
-  const lanterns = buildDock(scene, keep);
-  const dome = buildObservatory(scene, keep);
-  const glass = buildGreenhouse(scene, keep);
-  buildSlope(scene, keep);
-  const beam = buildLighthouse(scene, keep);
-  buildBoat(scene, keep);
-  addSigns(scene);
+  const course = buildPlatformerCourse(scene, keep);
 
   const clouds = buildClouds(scene, keep);
 
@@ -197,23 +193,119 @@ export function buildIsland(scene: THREE.Scene): IslandWorld {
       for (const cloud of clouds) {
         cloud.position.x += Math.sin(time * 0.15 + cloud.position.z) * 0.004;
       }
-      const dockOn = solved.has("dock");
-      for (const lantern of lanterns) {
-        lantern.material.emissive.set(dockOn ? "#ffb15a" : "#000000");
-        lantern.material.emissiveIntensity = dockOn ? 0.9 : 0;
-      }
-      flowers.visible = solved.has("slope");
-      dome.material.emissive.set(solved.has("observatory") ? "#ffe1a8" : "#000000");
-      dome.material.emissiveIntensity = solved.has("observatory") ? 0.45 : 0;
-      for (const pane of glass) {
-        pane.material.emissive.set(solved.has("greenhouse") ? "#d8ffcf" : "#000000");
-        pane.material.emissiveIntensity = solved.has("greenhouse") ? 0.35 : 0;
-      }
-      beam.visible = solved.has("lighthouse");
-      if (beam.visible) beam.rotation.y = time * 0.7;
+      course.update(time);
     },
     dispose() {
       for (const item of disposables) item.dispose();
+    },
+  };
+}
+
+function buildPlatformerCourse(scene: THREE.Scene, keep: <T extends { dispose: () => void }>(item: T) => T) {
+  const platformGeo = keep(new THREE.BoxGeometry(3.8, 0.65, 3.8));
+  const smallPlatformGeo = keep(new THREE.BoxGeometry(2.5, 0.55, 2.5));
+  const grassMat = std("#65b84f");
+  const dirtMat = std("#a86a3e");
+  const woodMat = std("#d28a43");
+  const goldMat = std("#ffd447", { emissive: "#d88b1e", emissiveIntensity: 0.35 });
+  const blueMat = std("#5aa6d6");
+  const pieces: THREE.Mesh[] = [];
+
+  const addPlatform = (x: number, z: number, y: number, scale = 1, material = grassMat) => {
+    const mesh = new THREE.Mesh(scale === 1 ? platformGeo : smallPlatformGeo, material);
+    mesh.position.set(x, y, z);
+    mesh.scale.y = scale;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    pieces.push(mesh);
+    return mesh;
+  };
+
+  addPlatform(0, -11, groundY(0, -11) + 0.32, 1.15);
+  addPlatform(-5.5, -5.5, groundY(-5.5, -5.5) + 1.0, 0.8, woodMat);
+  addPlatform(3.5, -1, groundY(3.5, -1) + 1.8, 0.75, blueMat);
+  addPlatform(9, 4, groundY(9, 4) + 2.6, 0.7, woodMat);
+  addPlatform(4, 10, groundY(4, 10) + 1.6, 0.85);
+  addPlatform(-5, 8, groundY(-5, 8) + 1.2, 0.75, blueMat);
+
+  const kitPath = (name: string) => `/assets/platformer-kit/Models/GLB%20format/${name}.glb`;
+  const kitCoins: THREE.Object3D[] = [];
+  const kitFlags: THREE.Object3D[] = [];
+  const addKitModel = (name: string, position: THREE.Vector3, scale: number, target: THREE.Object3D[] = []) => {
+    const path = kitPath(name);
+    let request = kitCache.get(path);
+    if (!request) {
+      request = kitLoader.loadAsync(path);
+      kitCache.set(path, request);
+    }
+    void request.then((gltf) => {
+      const model = gltf.scene.clone(true);
+      model.position.copy(position);
+      model.scale.setScalar(scale);
+      model.traverse((child) => {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      });
+      scene.add(model);
+      target.push(model);
+    }).catch(() => {
+      // The geometric course remains available if an optional kit model fails to load.
+    });
+  };
+
+  const kitPlatforms: Array<[string, number, number, number, number]> = [
+    ["block-grass", 0, groundY(0, -11) + 0.55, -11, 2.1],
+    ["block-grass-large", -5.5, groundY(-5.5, -5.5) + 1.3, -5.5, 1.65],
+    ["platform-ramp", 3.5, groundY(3.5, -1) + 2.05, -1, 1.55],
+    ["block-grass-large", 9, groundY(9, 4) + 3.15, 4, 1.35],
+    ["block-grass", 4, groundY(4, 10) + 1.95, 10, 1.7],
+    ["block-moving-blue", -5, groundY(-5, 8) + 1.55, 8, 1.5],
+  ];
+  for (const [name, x, y, z, scale] of kitPlatforms) addKitModel(name, new THREE.Vector3(x, y, z), scale);
+  addKitModel("flag", new THREE.Vector3(4, groundY(4, 10) + 3.6, 10), 1.7, kitFlags);
+  addKitModel("tree-pine-small", new THREE.Vector3(-16, groundY(-16, 2), 2), 2.4);
+  addKitModel("tree-pine-small", new THREE.Vector3(15, groundY(15, -6), -6), 2.1);
+  addKitModel("flowers", new THREE.Vector3(-10, groundY(-10, 7) + 0.1, 7), 1.4);
+  for (const [x, y, z] of [[-5.5, 5.1, -5.5], [3.5, 6.2, -1], [9, 7.1, 4], [4, 6.2, 10], [-5, 5.4, 8]] as const) {
+    addKitModel("coin-gold", new THREE.Vector3(x, y, z), 1.1, kitCoins);
+  }
+
+  const coinGeo = keep(new THREE.TorusGeometry(0.34, 0.11, 8, 16));
+  const coins: THREE.Mesh[] = [];
+  for (const [x, y, z] of [[-5.5, 5.1, -5.5], [3.5, 6.2, -1], [9, 7.1, 4], [4, 6.2, 10], [-5, 5.4, 8]] as const) {
+    const coin = new THREE.Mesh(coinGeo, goldMat);
+    coin.position.set(x, y, z);
+    coin.rotation.x = Math.PI / 2;
+    coin.castShadow = true;
+    scene.add(coin);
+    coins.push(coin);
+  }
+
+  const flagPoleGeo = keep(new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8));
+  const flagGeo = keep(new THREE.BoxGeometry(1.1, 0.65, 0.08));
+  const poleMat = std("#76523c");
+  const flagMat = std("#e85b4f");
+  const pole = new THREE.Mesh(flagPoleGeo, poleMat);
+  pole.position.set(4, groundY(4, 10) + 4.0, 10);
+  pole.castShadow = true;
+  const flag = new THREE.Mesh(flagGeo, flagMat);
+  flag.position.set(4.5, groundY(4, 10) + 4.95, 10);
+  flag.castShadow = true;
+  scene.add(pole, flag);
+
+  return {
+    update(time: number) {
+      for (let i = 0; i < coins.length; i += 1) {
+        coins[i].rotation.y = time * 2.4 + i;
+        coins[i].position.y += Math.sin(time * 2.5 + i) * 0.002;
+      }
+      for (const coin of kitCoins) {
+        coin.rotation.y = time * 2.4;
+        coin.position.y += Math.sin(time * 2.5) * 0.002;
+      }
+      flag.rotation.y = Math.sin(time * 2) * 0.12;
+      for (const kitFlag of kitFlags) kitFlag.rotation.y = Math.sin(time * 2) * 0.12;
     },
   };
 }
