@@ -25,6 +25,12 @@ export type PlatformSurface = {
   top: number;
 };
 
+export type SurfaceAnchor = {
+  x: number;
+  z: number;
+  top: number;
+};
+
 // Derive collision surfaces from the same scene configuration that loads the
 // visible Kenney models, so a block's visual top and landing height cannot drift.
 export const PLATFORM_SURFACES: PlatformSurface[] = PLATFORMER_SCENE_OBJECTS
@@ -43,6 +49,30 @@ export const PLATFORM_SURFACES: PlatformSurface[] = PLATFORMER_SCENE_OBJECTS
       top: item.position[1] + height,
     };
   });
+
+// Return a point on the nearest visible Kenney platform. Objects use this
+// instead of relying on hand-tuned Y values, which keeps every decoration,
+// tree, collectible and prop supported when the level layout changes.
+export function nearestPlatformAnchor(x: number, z: number): SurfaceAnchor {
+  let best: SurfaceAnchor | undefined;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const platform of PLATFORM_SURFACES) {
+    const dx = Math.max(Math.abs(x - platform.x) - platform.width * 0.5, 0);
+    const dz = Math.max(Math.abs(z - platform.z) - platform.depth * 0.5, 0);
+    const distance = dx * dx + dz * dz;
+    if (distance >= bestDistance) continue;
+
+    bestDistance = distance;
+    best = {
+      x: Math.min(Math.max(x, platform.x - platform.width * 0.5), platform.x + platform.width * 0.5),
+      z: Math.min(Math.max(z, platform.z - platform.depth * 0.5), platform.z + platform.depth * 0.5),
+      top: platform.top,
+    };
+  }
+
+  return best ?? { x, z, top: groundY(x, z) };
+}
 
 export const BLOCKERS = [
   { x: 0.2, z: 10.4, r: 1.85 },

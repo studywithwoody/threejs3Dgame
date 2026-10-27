@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { PLACES, groundY, islandRadius, isWalkable } from "@/game/terrain";
+import { PLACES, groundY, islandRadius, isWalkable, nearestPlatformAnchor } from "@/game/terrain";
 import { platformerKitPath } from "@/game/platformerKit/registry";
 import { PLATFORMER_SCENE_OBJECTS, type SceneObject, type SceneRegion } from "@/game/platformerKit/sceneConfig";
 
@@ -147,16 +147,29 @@ function buildReferenceScene(scene: THREE.Scene) {
     void request.then((gltf) => {
       const model = gltf.scene.clone(true);
       model.name = config.id;
-      model.position.set(...config.position);
       model.rotation.set(...config.rotation);
       model.scale.set(...config.scale);
+
+      const isSupport = config.category === "terrain" || config.category === "snow" || config.category === "platform";
+      const anchor = isSupport
+        ? { x: config.position[0], z: config.position[2], top: config.position[1] }
+        : nearestPlatformAnchor(config.position[0], config.position[2]);
+
+      // GLB files have different local origins. Measure the scaled and
+      // rotated model at Y=0, then move its lowest point onto the platform.
+      // This avoids props floating above blocks or sinking into their tops.
+      model.position.set(anchor.x, 0, anchor.z);
+      const bounds = new THREE.Box3().setFromObject(model);
+      model.position.y = isSupport
+        ? config.position[1]
+        : anchor.top - bounds.min.y + 0.025;
       model.traverse((child) => {
         child.castShadow = true;
         child.receiveShadow = true;
       });
       regions.get(config.region)?.add(model);
       instances.set(config.id, model);
-      initialY.set(config.id, config.position[1]);
+      initialY.set(config.id, model.position.y);
     }).catch(() => {
       // Keep the scene deterministic when an optional browser request fails.
     });
