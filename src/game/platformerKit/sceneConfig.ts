@@ -26,13 +26,20 @@ const object = (
 
 const objects: SceneObject[] = [];
 
-// A stepped green forest on the left.
+// A grounded green hill on the left. Blocks overlap horizontally so the side
+// wall reads as one continuous low-poly landform instead of floating islands.
 for (const [index, position] of ([
   [-17, 0, -4], [-11, 0, -4], [-5, 0, -4],
-  [-17, 1.8, 3], [-11, 2.2, 3], [-5, 1.2, 3],
-  [-17, 3.8, 10], [-11, 3.2, 10], [-5, 2.5, 10],
+  [-17, 0, 3], [-11, 0, 3], [-5, 0, 3],
+  [-17, 0, 10], [-11, 0, 10], [-5, 0, 10],
 ] as Array<[number, number, number]>).entries()) {
   objects.push(object(`forest-terrain-${index}`, "block-grass-large", "terrain", "forest", position, [1.85, 1.1, 1.85]));
+}
+for (const [index, position] of ([
+  [-4, 1.1, -7], [-6, 2.2, -4], [-8, 3.3, -1], [-10, 4.4, 2],
+  [-12, 5.5, 5], [-14, 6.6, 8], [-14, 7.7, 11], [-17, 7.7, 11],
+] as Array<[number, number, number]>).entries()) {
+  objects.push(object(`left-hill-step-${index}`, "block-grass-large", "terrain", "forest", position, [1.9, 1.1, 1.9]));
 }
 for (const [index, position] of ([
   [-18, 3.2, -7], [-13, 5.1, 5], [-7, 3.6, 12], [-3, 2.8, 5],
@@ -50,18 +57,18 @@ objects.push(
 
 // Snow mountain rising behind the valley.
 for (const [index, position] of ([
-  [-1, 0.8, 8], [5, 1.2, 8], [2, 3.6, 11], [8, 2.4, 10],
-  [2, 6.2, 14], [8, 4.8, 14],
+  [-1, 0, 8], [5, 0, 8], [2, 1.1, 11], [8, 1.1, 10],
+  [2, 2.2, 14], [8, 2.2, 14],
 ] as Array<[number, number, number]>).entries()) {
   objects.push(object(`snow-mountain-${index}`, "block-snow-large", "snow", "snow-mountain", position, [1.65, 1.2, 1.65]));
 }
 objects.push(
-  object("snow-tree-a", "tree-pine-snow", "tree", "snow-mountain", [0, 8.2, 14], [1.8, 1.8, 1.8]),
-  object("snow-tree-b", "tree-pine-snow-small", "tree", "snow-mountain", [6, 6.4, 14], [1.5, 1.5, 1.5]),
-  object("snow-tree-c", "tree-snow", "tree", "snow-mountain", [4, 4.3, 10], [1.3, 1.3, 1.3]),
-  object("snow-rocks", "rocks", "rock", "snow-mountain", [9, 4.1, 11], [1.2, 1.2, 1.2]),
-  object("snow-barrel", "barrel", "decoration", "snow-mountain", [-1, 2.3, 10], [1.2, 1.2, 1.2]),
-  object("snow-fence", "fence-straight", "fence", "snow-mountain", [7, 3.8, 8], [1.5, 1.5, 1.5], [0, Math.PI / 2, 0]),
+  object("snow-tree-a", "tree-pine-snow", "tree", "snow-mountain", [0, 3.3, 14], [1.8, 1.8, 1.8]),
+  object("snow-tree-b", "tree-pine-snow-small", "tree", "snow-mountain", [6, 2.4, 14], [1.5, 1.5, 1.5]),
+  object("snow-tree-c", "tree-snow", "tree", "snow-mountain", [4, 2.2, 10], [1.3, 1.3, 1.3]),
+  object("snow-rocks", "rocks", "rock", "snow-mountain", [9, 2.2, 11], [1.2, 1.2, 1.2]),
+  object("snow-barrel", "barrel", "decoration", "snow-mountain", [-1, 1.1, 10], [1.2, 1.2, 1.2]),
+  object("snow-fence", "fence-straight", "fence", "snow-mountain", [7, 1.1, 8], [1.5, 1.5, 1.5], [0, Math.PI / 2, 0]),
 );
 
 // Snow valley in the foreground, with a kit platform used as a bridge.
@@ -83,12 +90,18 @@ objects.push(
   object("valley-coin", "coin-gold", "collectible", "snow-valley", [7, 5.8, 7], [1.1, 1.1, 1.1], [0, 0, 0], true),
 );
 
-// Independent highland island on the right.
+// A second grounded green hill on the right, reached by a matching stair path.
 for (const [index, position] of ([
-  [15, 5.2, 3], [21, 5.2, 3], [15, 5.2, 9], [21, 5.2, 9],
-  [15, 7.4, 15], [21, 7.4, 15],
+  [12, 4.4, 2], [14, 5.5, 5], [16, 6.6, 8], [18, 7.7, 11],
+  [21, 7.7, 11], [18, 7.7, 14],
 ] as Array<[number, number, number]>).entries()) {
   objects.push(object(`highland-terrain-${index}`, "block-grass-large", "terrain", "highland", position, [1.7, 1.1, 1.7]));
+}
+for (const [index, position] of ([
+  [6, 1.1, -7], [8, 2.2, -4], [10, 3.3, -1], [12, 4.4, 2],
+  [14, 5.5, 5], [16, 6.6, 8], [18, 7.7, 11], [21, 7.7, 11],
+] as Array<[number, number, number]>).entries()) {
+  objects.push(object(`right-hill-step-${index}`, "block-grass-large", "terrain", "highland", position, [1.9, 1.1, 1.9]));
 }
 objects.push(
   object("highland-tree-a", "tree", "tree", "highland", [15, 7.2, 7], [1.6, 1.6, 1.6]),
@@ -98,13 +111,6 @@ objects.push(
   object("highland-flowers", "flowers-tall", "decoration", "highland", [13, 7, 12], [1.1, 1.1, 1.1]),
   object("highland-ladder", "ladder-long", "ladder", "highland", [14, 4.5, 5], [1.5, 1.5, 1.5], [0, 0, Math.PI / 2]),
   object("highland-coin", "coin-gold", "collectible", "highland", [18, 10.5, 15], [1.1, 1.1, 1.1], [0, 0, 0], true),
-);
-
-// Floating jump pads separating the major regions.
-objects.push(
-  object("floating-west", "platform-fortified", "platform", "floating", [-7, 7.2, 0], [1.3, 1.3, 1.3]),
-  object("floating-center", "block-moving-large", "platform", "floating", [9, 8.3, 6], [1.2, 1.2, 1.2]),
-  object("floating-spring", "spring", "platform", "floating", [12, 9.6, 9], [1.2, 1.2, 1.2]),
 );
 
 export const PLATFORMER_SCENE_OBJECTS = objects;
