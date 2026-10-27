@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { PLACES, groundY, islandRadius, isWalkable } from "@/game/terrain";
+import { platformerKitPath } from "@/game/platformerKit/registry";
+import { PLATFORMER_SCENE_OBJECTS, type SceneObject, type SceneRegion } from "@/game/platformerKit/sceneConfig";
 
 const WOOD = "#b8743d";
 const WOOD_DARK = "#8a552c";
@@ -103,7 +105,7 @@ export function buildIsland(scene: THREE.Scene): IslandWorld {
   keep(waterGeo);
   keep(waterMat);
 
-  const course = buildPlatformerCourse(scene, keep);
+  const course = buildReferenceScene(scene);
 
   return {
     update(time, solved) {
@@ -115,6 +117,71 @@ export function buildIsland(scene: THREE.Scene): IslandWorld {
     },
     dispose() {
       for (const item of disposables) item.dispose();
+    },
+  };
+}
+
+function buildReferenceScene(scene: THREE.Scene) {
+  const worldScene = new THREE.Group();
+  worldScene.name = "WorldScene";
+  const regions = new Map<SceneRegion, THREE.Group>();
+  for (const region of ["forest", "snow-mountain", "snow-valley", "highland", "floating"] as SceneRegion[]) {
+    const group = new THREE.Group();
+    group.name = `${region[0].toUpperCase()}${region.slice(1)}Region`;
+    regions.set(region, group);
+    worldScene.add(group);
+  }
+  scene.add(worldScene);
+
+  const instances = new Map<string, THREE.Object3D>();
+  const collectibles = PLATFORMER_SCENE_OBJECTS.filter((item) => item.collectible);
+  const initialY = new Map<string, number>();
+
+  for (const config of PLATFORMER_SCENE_OBJECTS) {
+    const path = platformerKitPath(config.assetId);
+    let request = kitCache.get(path);
+    if (!request) {
+      request = kitLoader.loadAsync(path);
+      kitCache.set(path, request);
+    }
+    void request.then((gltf) => {
+      const model = gltf.scene.clone(true);
+      model.name = config.id;
+      model.position.set(...config.position);
+      model.rotation.set(...config.rotation);
+      model.scale.set(...config.scale);
+      model.traverse((child) => {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      });
+      regions.get(config.region)?.add(model);
+      instances.set(config.id, model);
+      initialY.set(config.id, config.position[1]);
+    }).catch(() => {
+      // Keep the scene deterministic when an optional browser request fails.
+    });
+  }
+
+  return {
+    update(time: number) {
+      for (const config of collectibles) {
+        const model = instances.get(config.id);
+        if (!model) continue;
+        model.rotation.y = time * 2.4;
+        model.position.y = (initialY.get(config.id) ?? model.position.y) + Math.sin(time * 2.5 + model.position.x) * 0.12;
+      }
+      const floating = instances.get("floating-center");
+      if (floating) floating.position.x = 9 + Math.sin(time * 1.1) * 2.5;
+    },
+    tryCollectCoin(x: number, z: number) {
+      for (const config of collectibles) {
+        if (Math.hypot(config.position[0] - x, config.position[2] - z) > 1.5) continue;
+        const model = instances.get(config.id);
+        if (!model || !model.visible) continue;
+        model.visible = false;
+        return true;
+      }
+      return false;
     },
   };
 }

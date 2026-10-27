@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { makeAvatar, type Avatar } from "@/game/avatar";
 import { uiBridge } from "@/game/bridge";
 import { buildIsland } from "@/game/island";
@@ -49,8 +50,16 @@ export function mountIsland(host: HTMLElement): GameApi {
 
   const labelRenderer = new CSS2DRenderer({ element: labels });
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 400);
+  const camera = new THREE.OrthographicCamera(-12, 12, 8, -8, 0.1, 400);
+  camera.position.set(36, 28, 36);
   const world = buildIsland(scene);
+  const orbitControls = new OrbitControls(camera, canvas);
+  orbitControls.enableDamping = true;
+  orbitControls.enablePan = true;
+  orbitControls.minZoom = 0.7;
+  orbitControls.maxZoom = 2.8;
+  orbitControls.target.set(0, 3, 4);
+  orbitControls.update();
 
   const keys = new Set<string>();
   let playing = false;
@@ -79,7 +88,11 @@ export function mountIsland(host: HTMLElement): GameApi {
     const height = host.clientHeight || 1;
     renderer.setSize(width, height, false);
     labelRenderer.setSize(width, height);
-    camera.aspect = width / height;
+    const viewHeight = 24;
+    camera.top = viewHeight / 2;
+    camera.bottom = -viewHeight / 2;
+    camera.left = -viewHeight * (width / height) / 2;
+    camera.right = viewHeight * (width / height) / 2;
     camera.updateProjectionMatrix();
   };
   resize();
@@ -138,11 +151,10 @@ export function mountIsland(host: HTMLElement): GameApi {
     world.update(time, solved);
 
     if (!playing || !local || !profile) {
-      attract += dt * 0.08;
-      const radius = 46;
-      camera.position.set(Math.sin(attract) * radius, 24, Math.cos(attract) * radius);
-      camera.lookAt(0, 1.4, 0);
+      orbitControls.enabled = true;
+      orbitControls.update();
     } else {
+      orbitControls.enabled = false;
       const typing = uiBridge.typing;
       const forward = typing
         ? 0
@@ -326,6 +338,7 @@ export function mountIsland(host: HTMLElement): GameApi {
     dispose() {
       running = false;
       cancelAnimationFrame(frame);
+      orbitControls.dispose();
       observer.disconnect();
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);

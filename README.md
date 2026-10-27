@@ -6,6 +6,14 @@
 
 English notes are at the bottom.
 
+## Kenney Platformer Kit 場景
+
+目前首頁遊戲場景使用 `public/assets/platformer-kit` 的 Kenney Platformer Kit GLB 模型，並以四個區域組成參考微縮場景：左側森林、中央雪山、前方雪谷與右上森林高台。場景物件配置位於 [`sceneConfig.ts`](./src/game/platformerKit/sceneConfig.ts)，每個物件都包含 `assetId`、`position`、`rotation`、`scale` 與區域名稱；載入器只透過 [`registry.ts`](./src/game/platformerKit/registry.ts) 解析實際存在的模型。
+
+Asset Inventory 盤點結果與完整相對路徑見 [`platformer-kit-asset-inventory.md`](./docs/platformer-kit-asset-inventory.md)。下載包目前包含 153 個 GLB、沒有 GLTF。所有對應的模型縮圖可在 <http://localhost:3000/platformer-kit-gallery> 查看。
+
+相機使用 Three.js `OrthographicCamera` 呈現等角微縮視角；未進入遊戲時可用 `OrbitControls` 旋轉、縮放與平移場景，進入遊戲後則切換為角色跟隨鏡頭。場景不依賴 Blender 或手動擺放，修改配置檔即可重建相同場景。
+
 ## 本地開發
 
 需要 Node.js 20 以上。
