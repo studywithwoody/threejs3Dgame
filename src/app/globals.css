@@ -478,6 +478,25 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 .feed-button { width: auto !important; margin: 0 !important; min-height: 48px; white-space: nowrap; }
 .feed-button b { color: var(--yellow); }
 .pet-note { color: #9a5424; background: #fff0dc; border-radius: 10px; padding: 9px 10px; }
+.pet-manage-button { width: 100%; margin-top: 10px; }
+.pet-manager-card { max-height: min(88dvh, 760px); overflow: auto; position: relative; }
+.pet-manager-summary { margin: 14px 0; padding: 10px 12px; border-radius: 12px; background: #fff4ca; color: var(--muted); }
+.pet-manager-summary b { color: var(--ink); }
+.pet-manager-summary span { margin: 0 5px; color: #d3a25c; }
+.pet-manager-list, .egg-list { display: grid; gap: 8px; }
+.pet-manager-item, .egg-item { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 13px; background: #fff8f4; }
+.pet-manager-item.is-selected { border-color: var(--coral); box-shadow: 0 0 0 2px #db6a4122; }
+.pet-select { flex: 1; display: flex; align-items: center; gap: 9px; border: 0; background: transparent; text-align: left; padding: 3px; }
+.pet-select span:last-child { display: grid; gap: 2px; }
+.pet-select small, .egg-item small { color: var(--muted); }
+.pet-manager-emoji { font-size: 28px; line-height: 1; }
+.danger-button { width: auto; margin: 0; color: #a34a4a; }
+.egg-list { margin-top: 16px; }
+.egg-list h3 { margin: 0; font-size: 14px; }
+.egg-item { justify-content: space-between; }
+.egg-item > span { display: flex; align-items: center; gap: 8px; font-size: 25px; }
+.egg-item button { min-height: 38px; padding: 0 12px; }
+.empty-pets { margin: 0; padding: 12px; color: var(--muted); background: #f7eee8; border-radius: 11px; }
 
 .nameplate {
   display: flex;

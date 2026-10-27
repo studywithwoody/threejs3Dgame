@@ -16,9 +16,12 @@ import { BLOCKY_MODELS } from "@/game/avatar";
 import { type PublicQuestion } from "@/game/questions";
 import {
   canSolve,
-  adoptPet,
+  buyEgg,
+  discardPet,
   feedPet,
-  freshPet,
+  hatchEgg,
+  MAX_PETS,
+  EGG_COST,
   loadProgress,
   mergeProgress,
   nextStation,
@@ -29,7 +32,7 @@ import {
   STORAGE_KEY,
 } from "@/game/progress";
 import { PLACES } from "@/game/terrain";
-import { emptyProgress, type IslandProgress, type PetState, type Profile } from "@/game/types";
+import { emptyProgress, type IslandProgress, type PetSpecies, type PetState, type Profile } from "@/game/types";
 import { petStatus } from "@/game/progress";
 
 type Status = {
@@ -121,6 +124,8 @@ export function Shell() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
   const [roomOpen, setRoomOpen] = useState(false);
+  const [petManagerOpen, setPetManagerOpen] = useState(false);
+  const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [petNote, setPetNote] = useState<string | null>(null);
   const [collapsedInfo, setCollapsedInfo] = useState<Partial<Record<InfoCardKey, boolean>>>({});
   const notificationId = useRef(0);
@@ -205,23 +210,13 @@ export function Shell() {
   }, [progress]);
 
   useEffect(() => {
-    if (!me || progress.pets[me.id]) return;
-    const next = { ...progress, pets: { ...progress.pets, [me.id]: freshPet() } };
-    saveProgress(next);
-    progressRef.current = next;
-    setProgress(next);
-    netRef.current?.sendProgress(next);
-  }, [me, progress]);
-
-  useEffect(() => {
     if (!me) return;
     const timer = window.setInterval(() => {
       setProgress((previous) => {
-        const pet = previous.pets[me.id];
-        if (!pet) return previous;
-        const nextPet = { ...pet, status: petStatus(pet.lastFedAt) };
-        if (nextPet.status === pet.status) return previous;
-        const next = { ...previous, pets: { ...previous.pets, [me.id]: nextPet } };
+        const pets = previous.pets[me.id] ?? [];
+        const nextPets = pets.map((pet) => ({ ...pet, status: petStatus(pet.lastFedAt) }));
+        if (nextPets.every((pet, index) => pet.status === pets[index]?.status)) return previous;
+        const next = { ...previous, pets: { ...previous.pets, [me.id]: nextPets } };
         progressRef.current = next;
         saveProgress(next);
         return next;
@@ -389,60 +384,89 @@ export function Shell() {
     }
   }
 
-  async function feedMyPet() {
+  async function updatePetProgress(action: string, local: IslandProgress, extra: Record<string, string> = {}) {
     if (!me) return;
-    setPetNote(null);
-    const local = feedPet(progressRef.current, me.id);
-    if (!local) {
-      const pet = progressRef.current.pets[me.id];
-      setPetNote(pet?.status === "dead" ? "小曙已經離世了，請重新領養一隻寵物。" : "分數不足，答題賺到 5 分就能買飼料。給寵物一天餵一次就好！");
-      return;
-    }
     try {
       const response = await fetch("/api/pet", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "feed", playerId: me.id, progress: progressRef.current }),
+        body: JSON.stringify({ action, playerId: me.id, progress: progressRef.current, ...extra }),
       });
-      if (!response.ok) {
-        setPetNote("寵物店暫時沒有回應，請再試一次。");
-        return;
-      }
+      if (!response.ok) throw new Error("pet_action_failed");
       const data = (await response.json()) as { progress?: IslandProgress };
       const next = data.progress ?? local;
       saveProgress(next);
       progressRef.current = next;
       setProgress(next);
       netRef.current?.sendProgress(next);
-      setPetNote("飼料買好了！小曙恢復元氣，今天也要記得回來看看牠。");
+    } catch {
+      throw new Error("pet_action_failed");
+    }
+  }
+
+  async function feedMyPet() {
+    if (!me) return;
+    setPetNote(null);
+    const pets = progressRef.current.pets[me.id] ?? [];
+    const pet = pets.find((candidate) => candidate.id === selectedPetId) ?? pets[0];
+    const local = pet ? feedPet(progressRef.current, me.id, pet.id) : null;
+    if (!local) {
+      setPetNote(pet?.status === "dead" ? "這隻寵物已經離世了，請到管理頁移除牠。" : "分數不足，答題賺到 5 分就能買飼料。每天餵一次就好！");
+      return;
+    }
+    try {
+      await updatePetProgress("feed", local, { petId: pet?.id ?? "" });
+      setPetNote("飼料買好了！牠恢復元氣，今天也要記得回來看看牠。");
     } catch {
       setPetNote("寵物店暫時沒有回應，請再試一次。");
     }
   }
 
-  async function adoptMyPet() {
+  async function buyPetEgg() {
     if (!me) return;
-    const local = adoptPet(progressRef.current, me.id);
+    const local = buyEgg(progressRef.current, me.id);
     if (!local) {
-      setPetNote("重新領養需要 10 分，答題後再回來接小夥伴吧！");
+      setPetNote(`購買蛋需要 ${EGG_COST} 分，答題後再回來吧！`);
       return;
     }
     try {
-      const response = await fetch("/api/pet", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "adopt", playerId: me.id, progress: progressRef.current }),
-      });
-      if (!response.ok) throw new Error("adopt_failed");
-      const data = (await response.json()) as { progress?: IslandProgress };
-      const next = data.progress ?? local;
-      saveProgress(next);
-      progressRef.current = next;
-      setProgress(next);
-      netRef.current?.sendProgress(next);
-      setPetNote("新的小夥伴來到房間了！記得每天回來餵牠。");
+      await updatePetProgress("buyEgg", local);
+      setPetNote("你買到一顆神秘蛋了！到寵物管理頁孵化牠吧。");
     } catch {
       setPetNote("寵物店暫時沒有回應，請再試一次。");
+    }
+  }
+
+  async function hatchMyEgg(eggId: string) {
+    if (!me) return;
+    const pets = progressRef.current.pets[me.id] ?? [];
+    if (pets.length >= MAX_PETS) {
+      setPetNote(`寵物已達 ${MAX_PETS} 隻上限，先到管理頁丟棄一隻吧！`);
+      return;
+    }
+    const species = (["cat", "dog", "chicken"] as PetSpecies[])[Math.floor(Math.random() * 3)];
+    const local = hatchEgg(progressRef.current, me.id, eggId, species);
+    if (!local) return;
+    try {
+      await updatePetProgress("hatch", local, { eggId, species });
+      const newPet = local.pets[me.id]?.at(-1);
+      if (newPet) setSelectedPetId(newPet.id);
+      setPetNote(`孵化成功！你得到了一隻${petSpeciesLabel(species)}。`);
+    } catch {
+      setPetNote("孵蛋失敗，請再試一次。");
+    }
+  }
+
+  async function discardMyPet(petId: string) {
+    if (!me) return;
+    const local = discardPet(progressRef.current, me.id, petId);
+    if (!local) return;
+    try {
+      await updatePetProgress("discard", local, { petId });
+      if (selectedPetId === petId) setSelectedPetId(local.pets[me.id]?.[0]?.id ?? null);
+      setPetNote("這位小夥伴已離開你的島嶼，空出的名額可以孵新蛋了。");
+    } catch {
+      setPetNote("寵物管理暫時沒有回應，請再試一次。");
     }
   }
 
@@ -499,8 +523,10 @@ export function Shell() {
   const available = active ? canSolve(order, progress.solved, active.id) : false;
   const upcoming = nextStation(order, progress.solved);
   const score = me ? progress.scores[me.id] ?? 0 : 0;
-  const pet = me ? progress.pets[me.id] : undefined;
-  const displayPet = pet ? { ...pet, status: petStatus(pet.lastFedAt) } : undefined;
+  const myPets = me ? progress.pets[me.id] ?? [] : [];
+  const myEggs = me ? progress.eggs[me.id] ?? [] : [];
+  const selectedPet = myPets.find((candidate) => candidate.id === selectedPetId) ?? myPets[0];
+  const displayPet = selectedPet ? { ...selectedPet, status: petStatus(selectedPet.lastFedAt) } : undefined;
   const people = dedupePeople(me, roster);
   const leaders = Object.entries(progress.scores)
     .map(([id, points]) => ({
@@ -566,7 +592,7 @@ export function Shell() {
             </div>
             <button className="room-button" type="button" onClick={() => { setPetNote(null); setRoomOpen(true); }}>
               <span className="pet-mini">{petEmoji(displayPet)}</span>
-              <span><strong>我的房間</strong><small>{petStatusLabel(displayPet?.status)}</small></span>
+              <span><strong>我的房間</strong><small>{myPets.length} 隻寵物 · {myEggs.length} 顆蛋</small></span>
               <b>進入 →</b>
             </button>
             <h2>島上的人</h2>
@@ -725,29 +751,66 @@ export function Shell() {
             </button>
             <PetRoom3D
               pet={displayPet}
-              onInteract={() => setPetNote(displayPet?.status === "sick" ? "小曙蹭了蹭你的手，但看起來還是需要休息。" : "小曙開心地跳起來！牠知道你一直陪著牠。")}
+              onInteract={() => setPetNote(displayPet?.status === "sick" ? "牠蹭了蹭你的手，但看起來還是需要休息。" : "牠開心地跳起來！牠知道你一直陪著牠。")}
             />
             <p className="eyebrow">MY ROOM · 寵物養成</p>
-            <h2 id="room-title">{displayPet?.name ?? "小曙"} 的小房間</h2>
-            <p>{petStatusText(displayPet)}</p>
-            <div className="pet-stats">
-              <span>狀態 <b className={`status-${displayPet?.status}`}>{petStatusLabel(displayPet?.status)}</b></span>
-              <span>照顧 {displayPet?.feedings ?? 0} 次</span>
-              <span>飼料 5 分／份</span>
-            </div>
-            <div className="pet-shop">
-              <div><strong>寵物店</strong><small>答題分數可以換成飼料</small></div>
-              <button className="primary feed-button" type="button" onClick={() => void feedMyPet()} disabled={displayPet?.status === "dead" || score < 5}>
-                🥕 買飼料餵食 <b>5 分</b>
-              </button>
-            </div>
-            {displayPet?.status === "dead" ? (
-              <button className="primary" type="button" onClick={() => void adoptMyPet()} disabled={score < 10}>
-                🏠 重新領養小夥伴 <b>10 分</b>
-              </button>
+            <h2 id="room-title">{displayPet?.name ?? "我的寵物小屋"}</h2>
+            <p>{petStatusText(displayPet, myPets.length, myEggs.length)}</p>
+            {displayPet ? (
+              <div className="pet-stats">
+                <span>狀態 <b className={`status-${displayPet.status}`}>{petStatusLabel(displayPet.status)}</b></span>
+                <span>照顧 {displayPet.feedings} 次</span>
+                <span>飼料 5 分／份</span>
+              </div>
             ) : null}
+            <div className="pet-shop">
+              <div><strong>寵物店</strong><small>答題分數可以換成飼料或神秘蛋</small></div>
+              {displayPet ? <button className="primary feed-button" type="button" onClick={() => void feedMyPet()} disabled={displayPet.status === "dead" || score < 5}>
+                🥕 餵食 <b>5 分</b>
+              </button> : null}
+              <button className="primary feed-button" type="button" onClick={() => void buyPetEgg()} disabled={score < EGG_COST}>
+                🥚 買蛋 <b>{EGG_COST} 分</b>
+              </button>
+            </div>
+            <button className="secondary pet-manage-button" type="button" onClick={() => setPetManagerOpen(true)}>
+              🧺 管理寵物與蛋（{myPets.length}/{MAX_PETS}）
+            </button>
             {petNote ? <p className="pet-note">{petNote}</p> : null}
-            <p className="note">一天沒餵會生病，兩天沒餵會離世。每天答一題，讓牠一直陪你探索曙島。</p>
+            <p className="note">一天沒餵會生病，兩天沒餵會離世。最多養 {MAX_PETS} 隻寵物，空出名額才能孵新蛋。</p>
+          </section>
+        </div>
+      ) : null}
+
+      {petManagerOpen && me ? (
+        <div className="gate">
+          <section className="card pet-manager-card" role="dialog" aria-labelledby="pet-manager-title">
+            <button className="room-close" type="button" aria-label="關閉寵物管理" title="關閉寵物管理" onClick={() => setPetManagerOpen(false)}>×</button>
+            <p className="eyebrow">PET CARE · 管理中心</p>
+            <h2 id="pet-manager-title">寵物與蛋</h2>
+            <p>選一隻寵物查看狀態，也可以孵化蛋或丟棄既有寵物。</p>
+            <div className="pet-manager-summary"><b>{myPets.length}/{MAX_PETS}</b> 寵物 <span>·</span> <b>{myEggs.length}</b> 顆蛋 <span>·</span> <b>{score}</b> 分</div>
+            <div className="pet-manager-list">
+              {myPets.length > 0 ? myPets.map((petItem) => (
+                <article className={`pet-manager-item ${selectedPetId === petItem.id ? "is-selected" : ""}`} key={petItem.id}>
+                  <button type="button" className="pet-select" onClick={() => { setSelectedPetId(petItem.id); setPetManagerOpen(false); setRoomOpen(true); }}>
+                    <span className="pet-manager-emoji">{petEmoji({ species: petItem.species, status: petStatus(petItem.lastFedAt) })}</span>
+                    <span><strong>{petItem.name}</strong><small>{petSpeciesLabel(petItem.species)} · {petStatusLabel(petStatus(petItem.lastFedAt))}</small></span>
+                  </button>
+                  <button className="texty danger-button" type="button" onClick={() => void discardMyPet(petItem.id)}>丟棄</button>
+                </article>
+              )) : <p className="empty-pets">還沒有寵物，孵化第一顆蛋吧！</p>}
+            </div>
+            <div className="egg-list">
+              <h3>我的蛋</h3>
+              {myEggs.length > 0 ? myEggs.map((egg) => (
+                <div className="egg-item" key={egg.id}>
+                  <span>🥚 <small>神秘蛋</small></span>
+                  <button className="primary" type="button" onClick={() => void hatchMyEgg(egg.id)} disabled={myPets.length >= MAX_PETS}>孵化</button>
+                </div>
+              )) : <p className="empty-pets">還沒有蛋，到寵物店用 {EGG_COST} 分購買一顆吧。</p>}
+            </div>
+            {myPets.length >= MAX_PETS && myEggs.length > 0 ? <p className="pet-note">寵物已滿五隻，請先丟棄一隻寵物，才能孵化新的蛋。</p> : null}
+            {petNote ? <p className="pet-note">{petNote}</p> : null}
           </section>
         </div>
       ) : null}
@@ -939,19 +1002,25 @@ function AvatarRow({ value, onChange }: { value: string; onChange: (avatar: stri
 }
 
 function petEmoji(pet?: Pick<PetState, "species" | "status">) {
-  if (!pet || pet.status === "dead") return "🪦";
+  if (!pet) return "🥚";
+  if (pet.status === "dead") return "🪦";
   if (pet.status === "sick") return "🤒";
-  return pet.species === "cat" ? "🐱" : pet.species === "dog" ? "🐶" : "🐰";
+  return pet.species === "cat" ? "🐱" : pet.species === "dog" ? "🐶" : pet.species === "chicken" ? "🐔" : "🐰";
 }
 
 function petStatusLabel(status?: PetState["status"]) {
   return status === "dead" ? "已離世" : status === "sick" ? "生病了" : "健康有活力";
 }
 
-function petStatusText(pet?: PetState) {
-  if (!pet || pet.status === "dead") return "小房間還留著牠的回憶。重新開始照顧一隻新寵物吧。";
-  if (pet.status === "sick") return "小曙今天不舒服，需要飼料和你的關心。";
-  return "小曙正在房間裡等你，摸摸牠、餵牠吃點好吃的吧！";
+function petStatusText(pet: PetState | undefined, petCount: number, eggCount: number) {
+  if (!pet) return eggCount > 0 ? "你有神秘蛋等待孵化，快到寵物管理頁看看吧！" : "房間還沒有寵物，先到寵物店買一顆蛋吧。";
+  if (pet.status === "dead") return "這位小夥伴已經離世，請到管理頁移除牠，空出新的名額。";
+  if (pet.status === "sick") return `${pet.name} 今天不舒服，需要飼料和你的關心。`;
+  return `${pet.name} 正在房間裡等你，摸摸牠、餵牠吃點好吃的吧！目前共有 ${petCount} 隻寵物。`;
+}
+
+function petSpeciesLabel(species: PetSpecies) {
+  return species === "cat" ? "貓咪" : species === "dog" ? "狗狗" : species === "chicken" ? "小雞" : "兔子";
 }
 
 function profileFromUser(user: SessionUser): Profile {

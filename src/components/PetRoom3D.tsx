@@ -15,6 +15,7 @@ const MODEL_PATHS: Record<PetState["species"], string> = {
   bunny: "/pets/chick.glb",
   cat: "/pets/cat.glb",
   dog: "/pets/dog.glb",
+  chicken: "/pets/chick.glb",
 };
 
 const CAMERA_TARGET = new THREE.Vector3(0, 1.1, 0);
@@ -114,8 +115,8 @@ export default function PetRoom3D({ pet, onInteract }: Props) {
       mode = name;
     };
 
-    loader.load(
-      MODEL_PATHS[pet?.species ?? "bunny"],
+    if (pet) loader.load(
+      MODEL_PATHS[pet.species],
       (gltf) => {
         model = gltf.scene;
         model.scale.setScalar(2.05);

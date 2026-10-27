@@ -10,17 +10,25 @@ export type IslandProgress = {
   solved: string[];
   scores: Record<string, number>;
   names: Record<string, string>;
-  pets: Record<string, PetState>;
+  pets: Record<string, PetState[]>;
+  eggs: Record<string, EggState[]>;
 };
 
 export type PetStatus = "healthy" | "sick" | "dead";
+export type PetSpecies = "bunny" | "cat" | "dog" | "chicken";
 
 export type PetState = {
+  id: string;
   name: string;
-  species: "bunny" | "cat" | "dog";
+  species: PetSpecies;
   lastFedAt: number;
   status: PetStatus;
   feedings: number;
+};
+
+export type EggState = {
+  id: string;
+  createdAt: number;
 };
 
 export type Pose = {
@@ -33,5 +41,5 @@ export type Pose = {
 export const POINTS_PER_STATION = 10;
 
 export function emptyProgress(): IslandProgress {
-  return { solved: [], scores: {}, names: {}, pets: {} };
+  return { solved: [], scores: {}, names: {}, pets: {}, eggs: {} };
 }

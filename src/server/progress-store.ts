@@ -51,6 +51,7 @@ export async function gradeAndPersist(input: {
         scores: next.scores,
         names: next.names,
         pets: next.pets,
+        eggs: next.eggs,
       })
       .onConflictDoUpdate({
         target: islandProgress.id,
@@ -59,6 +60,7 @@ export async function gradeAndPersist(input: {
           scores: next.scores,
           names: next.names,
           pets: next.pets,
+          eggs: next.eggs,
           updatedAt: new Date(),
         },
       });
