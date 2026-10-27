@@ -195,6 +195,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   .brand h1 { font-size: 28px; }
   .brand p { display: none; }
   .progress-pill { left: 28px; transform: none; }
+  .pet-room-3d { height: 230px; }
+  .pet-camera-button { padding: 9px 11px; font-size: 13px; }
 }
 
 .gate {
@@ -274,6 +276,23 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 }
 .pet-room-3d.status-sick { filter: saturate(.82); }
 .pet-room-3d.status-dead { filter: grayscale(.45); }
+.pet-camera-button {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  left: 10px;
+  border: 1px solid #ffffff;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #fff8f4e8;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1;
+  box-shadow: 0 2px 8px #4a2a1422;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.pet-camera-button:active { transform: translateY(1px); }
 .pet-expression {
   position: absolute;
   z-index: 2;

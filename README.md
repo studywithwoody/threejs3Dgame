@@ -152,13 +152,24 @@ Pull request 若改了 schema、`drizzle/` 或 `drizzle.config.ts`，**Check mig
 1. 打開正式站，按 **以 Google 帳號進入**。共用電腦時 Google 會先讓人選擇帳號。
 2. 島上的名字預設是 Google 顯示名稱，頭像用 Google 大頭貼。點右上角自己的名字可以改 **暱稱**（最多 16 字，留白就回到 Google 名稱）和角色顏色。Email 不會顯示在島上。
 3. `WASD` 或方向鍵移動，按住 Shift 跑步。滑鼠拖曳轉動鏡頭，滾輪拉遠近。手機用左下搖桿，靠近站點時按「調查」。
-<<<<<<< Updated upstream
-4. 五座站要照 `data/questions.json` 的 `stage` 順序解。伺服器核對答案後才解鎖下一站，答題的人 +10 分，徽章顯示在右側。答錯可以重試，不會先公布答案。有資料庫時，約每 10 秒向伺服器核對一次全班進度。
-=======
 4. 聊天在右下角，訊息會出現在角色頭上大約六秒。聊天不寫入資料庫，目前只在同一個瀏覽器的分頁之間傳送。
 5. 五座站要照 `data/questions.json` 的 `stage` 順序解。伺服器核對答案後才解鎖下一站，答題的人 +10 分，徽章顯示在右側。答錯可以重試，不會先公布答案。有資料庫時，約每 10 秒向伺服器核對一次全班進度。
 6. 右側的「我的房間」可以照顧寵物。答題分數可在寵物店換飼料（5 分一份）；超過一天沒餵會生病，超過兩天沒餵會離世。寵物照護狀態會跟著本機進度，登入並完成資料庫 migration 後也會跨裝置保存。
->>>>>>> Stashed changes
+7. 「我的房間」中的寵物是可互動的 3D 模型。健康時會待機、走動與被點擊跳躍；生病時會坐下、晃動並顯示 🤒；離世時會顯示墓碑。房間中的表情與行為會依寵物狀態變化。
+
+### 3D 寵物資產
+
+專案使用 Kenney 的 **Cube Pets** GLB 模型，來源頁面標示為 Creative Commons CC0，可用於個人或商業專案。模型檔案放在 [`public/pets`](./public/pets)，房間由 [`PetRoom3D.tsx`](./src/components/PetRoom3D.tsx) 使用 Three.js 與 `GLTFLoader` 載入。
+
+目前模型對應如下：
+
+| 遊戲類型 | 使用模型 | 檔案 |
+| --- | --- | --- |
+| `bunny` | Chick（小雞） | [`chick.glb`](./public/pets/chick.glb) |
+| `cat` | Cat（貓） | [`cat.glb`](./public/pets/cat.glb) |
+| `dog` | Dog（狗） | [`dog.glb`](./public/pets/dog.glb) |
+
+模型來源：[Kenney Cube Pets](https://kenney.nl/assets/cube-pets)。模型索引與 GLB 路徑也可參考 [Kenney CC0 asset catalog](https://github.com/Hidencod/tge-assets)。
 
 ## 修改題目
 
@@ -198,6 +209,7 @@ Pull request 若改了 schema、`drizzle/` 或 `drizzle.config.ts`，**Check mig
 - **Better Auth** 加 Google 社交登入。暱稱與角色顏色在 `user` 表。
 - **Neon Postgres** 與 **Drizzle**。執行期用 pooled `DATABASE_URL` 和 postgres.js（`prepare: false`）；migration 用 `DATABASE_URL_UNPOOLED`，合併到 `main` 後由 GitHub Actions 套用。
 - **Three.js** 畫島和角色。
+- **Three.js GLTFLoader** 載入 CC0 GLB 寵物模型，並在房間中播放 `idle`、`walk`、`sit` 動畫。
 - 即時多人同步先不接。同一個瀏覽器的分頁用 `BroadcastChannel`。
 
 ## English
