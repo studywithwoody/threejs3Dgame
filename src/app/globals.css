@@ -28,7 +28,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   background: radial-gradient(ellipse at center, transparent 45%, rgba(90, 48, 32, 0.16) 100%);
 }
 
-.brand, .progress-pill, .banner, .ribbon, .side, .chat, .interact, .hint, .joystick, .gate {
+.brand, .progress-pill, .banner, .ribbon, .side, .interact, .hint, .joystick, .gate {
   position: absolute;
   z-index: 2;
 }
@@ -84,7 +84,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   backdrop-filter: blur(16px);
 }
 .side h2 { margin: 14px 0 6px; font-size: 13px; letter-spacing: 0.08em; }
-.who, .texty, .card button, .chat button, .interact {
+.who, .texty, .card button, .interact {
   border: 1px solid var(--line);
   background: var(--cream);
   border-radius: 12px;
@@ -107,7 +107,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   flex: none;
 }
 .who span { display: flex; flex-direction: column; }
-.who small, .muted { color: var(--muted); }
+.who small { color: var(--muted); }
 .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .badges span, .badge-line {
   background: #fcea8b88;
@@ -120,38 +120,6 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 .roster b, .leaders b { margin-left: auto; font-variant-numeric: tabular-nums; }
 .roster i { width: 12px; height: 12px; }
 .texty { width: 100%; margin-top: 12px; background: transparent; }
-
-.chat {
-  right: 18px;
-  bottom: 18px;
-  width: min(340px, calc(100% - 24px));
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.chat .log {
-  display: none;
-  max-height: 220px;
-  overflow: auto;
-  background: #fff8f4eb;
-  border-radius: 18px;
-  padding: 10px 12px;
-  box-shadow: 0 12px 30px #4a2a1418;
-}
-.chat.open .log { display: block; }
-.chat form { display: none; gap: 6px; }
-.chat.open form { display: flex; }
-.chat input {
-  flex: 1;
-  min-height: 44px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  padding: 0 12px;
-  background: #fff;
-}
-.chat p { margin: 0 0 6px; }
-.chat-toggle { align-self: flex-end; padding: 0 14px; }
-.log b { color: var(--coral); }
 
 .interact {
   left: 50%;
@@ -206,7 +174,6 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   .joystick { display: grid; }
   .hint { display: none; }
   .side { top: auto; bottom: 18px; right: 12px; left: auto; width: min(230px, 58vw); max-height: 32dvh; }
-  .chat { left: 12px; right: auto; bottom: 210px; width: min(280px, calc(100% - 150px)); }
   .brand h1 { font-size: 28px; }
   .brand p { display: none; }
   .progress-pill { left: 28px; transform: none; }
@@ -291,17 +258,6 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   object-fit: cover;
   border: 2px solid #fff;
 }
-.nameplate .bubble {
-  max-width: 180px;
-  background: var(--ink);
-  color: var(--cream);
-  border-radius: 12px;
-  padding: 6px 8px;
-  font: 500 12px/1.4 "Noto Sans TC", sans-serif;
-  white-space: normal;
-  text-align: center;
-}
-.nameplate .bubble[hidden] { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; }

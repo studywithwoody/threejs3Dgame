@@ -13,7 +13,6 @@ export type GameApi = {
   leave: () => void;
   setProfile: (profile: Profile) => void;
   applyProgress: (progress: IslandProgress) => void;
-  showBubble: (id: string, text: string) => void;
   upsertRemote: (player: Profile & Pose) => void;
   removeRemote: (id: string) => void;
   nearby: () => string | null;
@@ -254,10 +253,6 @@ export function mountIsland(host: HTMLElement): GameApi {
         material.emissive.set(done ? "#f6d56b" : open ? "#e07a5f" : "#000000");
         material.emissiveIntensity = done || open ? 0.55 : 0;
       }
-    },
-    showBubble(id, text) {
-      if (profile?.id === id) local?.say(text);
-      else remotes.get(id)?.avatar.say(text);
     },
     upsertRemote(player) {
       if (profile && player.id === profile.id) return;

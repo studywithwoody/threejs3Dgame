@@ -18,13 +18,6 @@ export type Pose = {
   ry: number;
 };
 
-export type ChatMessage = {
-  id: string;
-  name: string;
-  text: string;
-  t: number;
-};
-
 export const POINTS_PER_STATION = 10;
 
 export function emptyProgress(): IslandProgress {
