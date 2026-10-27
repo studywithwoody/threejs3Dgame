@@ -781,6 +781,6 @@ export const PLATFORMER_KIT_BY_ID = new Map(
 export function platformerKitPath(assetId: string) {
   const asset = PLATFORMER_KIT_BY_ID.get(assetId);
   if (!asset) throw new Error("Unknown Platformer Kit asset: " + assetId);
-  return asset.path;
+  return `/assets/platformer-kit${asset.path}`;
 }
 
