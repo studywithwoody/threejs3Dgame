@@ -9,6 +9,7 @@ export const authClient = createAuthClient({
       user: {
         nickname: { type: "string" },
         avatarColor: { type: "string" },
+        avatarModel: { type: "string" },
       },
     }),
   ],

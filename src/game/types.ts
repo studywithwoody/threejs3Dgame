@@ -3,6 +3,7 @@ export type Profile = {
   name: string;
   image?: string | null;
   color: string;
+  avatarModel?: string;
 };
 
 export type IslandProgress = {

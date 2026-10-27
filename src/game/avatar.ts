@@ -1,6 +1,29 @@
 import * as THREE from "three";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { Profile } from "@/game/types";
+
+export const BLOCKY_MODELS = [
+  { id: "character-a", label: "曙光探險家" },
+  { id: "character-b", label: "森林漫遊者" },
+  { id: "character-c", label: "海島守護者" },
+  { id: "character-d", label: "星空旅人" },
+  { id: "character-e", label: "活力同學" },
+  { id: "character-f", label: "陽光夥伴" },
+] as const;
+
+const modelLoader = new GLTFLoader();
+const modelCache = new Map<string, Promise<import("three/examples/jsm/loaders/GLTFLoader.js").GLTF>>();
+
+function loadBlockyModel(id: string) {
+  const model = BLOCKY_MODELS.some((item) => item.id === id) ? id : BLOCKY_MODELS[0].id;
+  const cached = modelCache.get(model);
+  if (cached) return cached;
+  const promise = modelLoader.loadAsync(`/characters/${model}.glb`);
+  modelCache.set(model, promise);
+  return promise;
+}
 
 const skin = new THREE.MeshStandardMaterial({ color: "#f3c7a6", roughness: 0.72 });
 const eyeWhite = new THREE.MeshStandardMaterial({ color: "#fffaf6", roughness: 0.4 });
@@ -19,11 +42,13 @@ export type Avatar = {
   label: HTMLElement;
   photo: HTMLImageElement;
   setProfile: (profile: Profile) => void;
+  update: (delta: number) => void;
   dispose: () => void;
 };
 
 export function makeAvatar(profile: Profile): Avatar {
   const group = new THREE.Group();
+  const fallback = new THREE.Group();
   const cloth = new THREE.MeshStandardMaterial({ color: profile.color, roughness: 0.62 });
   const body = new THREE.Mesh(bodyGeo, cloth);
   body.position.y = 0.78;
@@ -55,7 +80,13 @@ export function makeAvatar(profile: Profile): Avatar {
   const pupilR = pupilL.clone();
   pupilR.position.x = 0.1;
 
-  group.add(body, head, legL, legR, armL, armR, shoeL, shoeR, eyeL, eyeR, pupilL, pupilR);
+  fallback.add(body, head, legL, legR, armL, armR, shoeL, shoeR, eyeL, eyeR, pupilL, pupilR);
+  group.add(fallback);
+
+  let model: THREE.Object3D | null = null;
+  let mixer: THREE.AnimationMixer | null = null;
+  let requestId = 0;
+  let disposed = false;
 
   const labelEl = document.createElement("div");
   labelEl.className = "nameplate";
@@ -83,8 +114,41 @@ export function makeAvatar(profile: Profile): Avatar {
         photo.removeAttribute("src");
         photo.hidden = true;
       }
+      const currentRequest = ++requestId;
+      void loadBlockyModel(next.avatarModel ?? BLOCKY_MODELS[0].id)
+        .then((gltf) => {
+          if (disposed || currentRequest !== requestId) return;
+          if (model) group.remove(model);
+          model = SkeletonUtils.clone(gltf.scene);
+          const bounds = new THREE.Box3().setFromObject(model);
+          const size = bounds.getSize(new THREE.Vector3());
+          const center = bounds.getCenter(new THREE.Vector3());
+          const scale = 1.9 / Math.max(size.y, 0.001);
+          model.scale.setScalar(scale);
+          model.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
+          model.traverse((child) => {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          });
+          group.add(model);
+          fallback.visible = false;
+          mixer = gltf.animations.length > 0 ? new THREE.AnimationMixer(model) : null;
+          const clip = gltf.animations[0];
+          if (mixer && clip) mixer.clipAction(clip).play();
+        })
+        .catch(() => {
+          // Keep the geometric fallback if the static asset cannot be loaded.
+        });
+    },
+    update(delta) {
+      mixer?.update(delta);
     },
     dispose() {
+      disposed = true;
+      requestId += 1;
+      mixer?.stopAllAction();
+      mixer = null;
+      if (model) group.remove(model);
       cloth.dispose();
       shoeL.geometry.dispose();
       labelEl.remove();

@@ -305,6 +305,32 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   padding: 0;
 }
 .colors button.on { box-shadow: 0 0 0 2px var(--ink); }
+.avatar-choices { margin: 12px 0 8px; }
+.choice-label { margin: 0 0 6px !important; font-size: 14px; }
+.avatar-choice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.avatar-choice-grid button {
+  min-height: 62px;
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  padding: 6px 4px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.avatar-choice-grid button.on { border-color: var(--coral); box-shadow: 0 0 0 2px #db6a4144; color: var(--ink); }
+.avatar-choice-preview {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: linear-gradient(145deg, #f6d56b, #e07a5f);
+  color: #fff;
+  font-weight: 900;
+}
 .choices { display: grid; gap: 8px; margin: 12px 0; }
 .choices button { text-align: left; padding: 10px 12px; background: #fff; }
 .choices button.right { background: #e5f5df; }

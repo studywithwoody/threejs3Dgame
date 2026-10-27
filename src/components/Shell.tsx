@@ -11,6 +11,7 @@ import { stationOrderRef, uiBridge } from "@/game/bridge";
 import { connectIsland, type IslandConnection, type NetMode } from "@/game/net";
 import type { GameApi } from "@/game/mount";
 import { setStick } from "@/game/mount";
+import { BLOCKY_MODELS } from "@/game/avatar";
 import { type PublicQuestion } from "@/game/questions";
 import {
   canSolve,
@@ -52,6 +53,7 @@ type SessionUser = {
   image?: string | null;
   nickname?: string | null;
   avatarColor?: string | null;
+  avatarModel?: string | null;
 };
 
 type InfoCardKey = "progress" | "side";
@@ -109,9 +111,12 @@ export function Shell() {
   const [quizNote, setQuizNote] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [guestColor, setGuestColor] = useState<string>(AVATAR_COLORS[0]);
+  const [guestAvatar, setGuestAvatar] = useState<string>(BLOCKY_MODELS[0].id);
   const [nickDraft, setNickDraft] = useState("");
   const [colorDraft, setColorDraft] = useState<string>(AVATAR_COLORS[0]);
+  const [avatarDraft, setAvatarDraft] = useState<string>(BLOCKY_MODELS[0].id);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [avatarSetupOpen, setAvatarSetupOpen] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
   const [roomOpen, setRoomOpen] = useState(false);
@@ -159,9 +164,10 @@ export function Shell() {
     const stored = window.localStorage.getItem(GUEST_KEY);
     if (stored) {
       try {
-        const parsed = JSON.parse(stored) as { name?: string; color?: string };
+        const parsed = JSON.parse(stored) as { name?: string; color?: string; avatarModel?: string };
         if (parsed.name) setGuestName(parsed.name);
         if (parsed.color) setGuestColor(parsed.color);
+        if (parsed.avatarModel && BLOCKY_MODELS.some((item) => item.id === parsed.avatarModel)) setGuestAvatar(parsed.avatarModel);
       } catch {
         /* ignore broken guest cache */
       }
@@ -238,6 +244,9 @@ export function Shell() {
       const ticket = ++generation.current;
       netRef.current?.close();
       setMe(profile);
+      setAvatarSetupOpen(!profile.avatarModel);
+      setAvatarDraft(profile.avatarModel ?? BLOCKY_MODELS[0].id);
+      setProfileOpen(!profile.avatarModel);
       setNotifications([]);
       apiRef.current?.enter(profile);
       let current = progressRef.current;
@@ -442,23 +451,30 @@ export function Shell() {
     const nickname = cleanNickname(nickDraft);
     setProfileError(null);
     if (!status?.authConfigured || me.id === guestId()) {
-      const next = { ...me, name: nickname || me.name, color: colorDraft };
-      window.localStorage.setItem(GUEST_KEY, JSON.stringify({ name: next.name, color: next.color }));
+      const next = { ...me, name: nickname || me.name, color: colorDraft, avatarModel: avatarDraft };
+      window.localStorage.setItem(GUEST_KEY, JSON.stringify({ name: next.name, color: next.color, avatarModel: next.avatarModel }));
       setMe(next);
       apiRef.current?.setProfile(next);
       netRef.current?.updateProfile(next);
       setProfileOpen(false);
+      setAvatarSetupOpen(false);
       return;
     }
     const result = await authClient.updateUser({
       nickname,
       avatarColor: colorDraft,
+      avatarModel: avatarDraft,
     });
     if (result.error) {
       setProfileError("暱稱沒有存進去，請再試一次。");
       return;
     }
+    const next = { ...me, name: nickname || me.name, color: colorDraft, avatarModel: avatarDraft };
+    setMe(next);
+    apiRef.current?.setProfile(next);
+    netRef.current?.updateProfile(next);
     setProfileOpen(false);
+    setAvatarSetupOpen(false);
   }
 
   async function signIn() {
@@ -473,8 +489,8 @@ export function Shell() {
   function startGuest() {
     const name = cleanNickname(guestName) || "訪客";
     const id = guestId();
-    window.localStorage.setItem(GUEST_KEY, JSON.stringify({ name, color: guestColor }));
-    void enterGame({ id, name, color: guestColor, image: null });
+    window.localStorage.setItem(GUEST_KEY, JSON.stringify({ name, color: guestColor, avatarModel: guestAvatar }));
+    void enterGame({ id, name, color: guestColor, avatarModel: guestAvatar, image: null });
   }
 
   const active = questions?.find((item) => item.id === activeId) ?? null;
@@ -636,6 +652,7 @@ export function Shell() {
                     placeholder="例如：林同學"
                   />
                 </label>
+                <AvatarRow value={guestAvatar} onChange={setGuestAvatar} />
                 <ColorRow value={guestColor} onChange={setGuestColor} />
                 <button className="primary" type="button" onClick={startGuest}>
                   以訪客進入
@@ -651,8 +668,8 @@ export function Shell() {
         <div className="gate">
           <section className="card" role="dialog" aria-labelledby="profile-title">
             <p className="eyebrow">PROFILE</p>
-            <h2 id="profile-title">島上的名字</h2>
-            <p>Google 名稱是「{user?.name || me.name}」。暱稱留白就會改回那個名稱。</p>
+            <h2 id="profile-title">{avatarSetupOpen ? "建立你的島嶼角色" : "島上的名字與角色"}</h2>
+            <p>{avatarSetupOpen ? "先選一個 Blocky 角色，之後可以隨時在個人資料中更換。" : `Google 名稱是「${user?.name || me.name}」。暱稱留白就會改回那個名稱。`}</p>
             <label>
               暱稱
               <input
@@ -667,10 +684,11 @@ export function Shell() {
                 }}
               />
             </label>
+            <AvatarRow value={avatarDraft} onChange={setAvatarDraft} />
             <ColorRow value={colorDraft} onChange={setColorDraft} />
             {profileError ? <p className="warn">{profileError}</p> : null}
             <div className="row">
-              <button type="button" onClick={() => setProfileOpen(false)}>
+              <button type="button" onClick={() => { if (!avatarSetupOpen) setProfileOpen(false); }} disabled={avatarSetupOpen}>
                 取消
               </button>
               <button className="primary" type="button" onClick={() => void saveProfile()}>
@@ -778,7 +796,9 @@ export function Shell() {
   function openProfile(profile: Profile) {
     setNickDraft(user?.nickname ?? "");
     setColorDraft(profile.color);
+    setAvatarDraft(profile.avatarModel ?? BLOCKY_MODELS[0].id);
     setProfileError(null);
+    setAvatarSetupOpen(false);
     setProfileOpen(true);
   }
 }
@@ -801,6 +821,7 @@ function SessionWatch({
             image: current.image,
             nickname: current.nickname,
             avatarColor: current.avatarColor,
+            avatarModel: current.avatarModel,
           }
         : null,
       session.isPending,
@@ -882,6 +903,29 @@ function ColorRow({ value, onChange }: { value: string; onChange: (color: string
   );
 }
 
+function AvatarRow({ value, onChange }: { value: string; onChange: (avatar: string) => void }) {
+  return (
+    <div className="avatar-choices" role="listbox" aria-label="選擇角色">
+      <p className="choice-label">角色外觀</p>
+      <div className="avatar-choice-grid">
+        {BLOCKY_MODELS.map((model) => (
+          <button
+            key={model.id}
+            type="button"
+            className={model.id === value ? "on" : ""}
+            aria-label={model.label}
+            aria-selected={model.id === value}
+            onClick={() => onChange(model.id)}
+          >
+            <span className="avatar-choice-preview">{model.id.slice(-1).toUpperCase()}</span>
+            <span>{model.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function petEmoji(pet?: Pick<PetState, "species" | "status">) {
   if (!pet || pet.status === "dead") return "🪦";
   if (pet.status === "sick") return "🤒";
@@ -904,11 +948,12 @@ function profileFromUser(user: SessionUser): Profile {
     name: displayName(user),
     image: user.image,
     color: user.avatarColor || colorFromId(user.id),
+    avatarModel: user.avatarModel || undefined,
   };
 }
 
 function sameProfile(prev: Profile | null, next: Profile) {
-  return !!prev && prev.id === next.id && prev.name === next.name && prev.color === next.color && prev.image === next.image;
+  return !!prev && prev.id === next.id && prev.name === next.name && prev.color === next.color && prev.image === next.image && prev.avatarModel === next.avatarModel;
 }
 
 function guestId() {

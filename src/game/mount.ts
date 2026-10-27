@@ -161,6 +161,7 @@ export function mountIsland(host: HTMLElement): GameApi {
       const bob = Math.sin(time * (moved ? 9 : 2)) * (moved ? 0.05 : 0.015);
       local.group.position.set(x, gy + bob, z);
       local.group.rotation.y = ry;
+      local.update(dt);
       const cameraTargetY = gy + 1.35;
       const horizontalDistance = Math.cos(cameraPitch) * distance;
       desired.set(
@@ -208,6 +209,7 @@ export function mountIsland(host: HTMLElement): GameApi {
       remote.ry = dampAngle(remote.ry, remote.try, dt);
       remote.avatar.group.position.set(remote.x, groundY(remote.x, remote.z), remote.z);
       remote.avatar.group.rotation.y = remote.ry;
+      remote.avatar.update(dt);
     }
 
     renderer.render(scene, camera);

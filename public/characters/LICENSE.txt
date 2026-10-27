@@ -1,0 +1,6 @@
+Blocky Characters by Kenney
+
+The assets in this directory are from Kenney's Blocky Characters pack.
+License: Creative Commons CC0 1.0 Universal
+Source: https://kenney.nl/assets/blocky-characters
+Repository mirror used for the GLB downloads: https://github.com/shorepine/kenney/tree/main/3d/blocky-characters

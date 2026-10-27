@@ -14,6 +14,7 @@ export const user = pgTable("user", {
     .notNull(),
   nickname: text("nickname"),
   avatarColor: text("avatar_color"),
+  avatarModel: text("avatar_model"),
 });
 
 export const session = pgTable(

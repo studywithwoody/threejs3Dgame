@@ -54,6 +54,7 @@ function createAuth() {
       additionalFields: {
         nickname: { type: "string", required: false },
         avatarColor: { type: "string", required: false },
+        avatarModel: { type: "string", required: false },
       },
     },
     session: {
