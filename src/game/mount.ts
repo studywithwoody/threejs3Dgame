@@ -71,7 +71,7 @@ export function mountIsland(host: HTMLElement): GameApi {
   let cameraYaw = 0;
   let cameraPitch = 0.4;
   let distance = 12;
-  let playerY = groundY(SPAWN.x, SPAWN.z);
+  let playerY = surfaceY(SPAWN.x, SPAWN.z) ?? groundY(SPAWN.x, SPAWN.z);
   let jumpVelocity = 0;
   let grounded = true;
   let nearbyId: string | null = null;
@@ -173,10 +173,19 @@ export function mountIsland(host: HTMLElement): GameApi {
       const move = (nextX: number, nextZ: number) => {
         if (!isWalkable(nextX, nextZ)) return false;
         const nextSurface = surfaceY(nextX, nextZ);
-        if (grounded && nextSurface - playerY > 0.85) return false;
+        if (grounded && nextSurface !== null && nextSurface - playerY > 0.85) return false;
         x = nextX;
         z = nextZ;
-        if (grounded) playerY = nextSurface;
+        if (grounded) {
+          // A lower or missing surface is an edge, not an instant teleport
+          // down. Let gravity carry the avatar to the next supported block.
+          if (nextSurface === null || nextSurface < playerY - 0.85) {
+            grounded = false;
+            jumpVelocity = 0;
+          } else if (nextSurface !== null) {
+            playerY = nextSurface;
+          }
+        }
         return true;
       };
       move(x + dx, z);
@@ -190,12 +199,16 @@ export function mountIsland(host: HTMLElement): GameApi {
         jumpVelocity -= 24 * dt;
         playerY += jumpVelocity * dt;
         const landingY = surfaceY(x, z);
-        if (jumpVelocity <= 0 && previousY >= landingY && playerY <= landingY) {
+        if (landingY !== null && jumpVelocity <= 0 && previousY >= landingY && playerY <= landingY) {
           playerY = landingY;
           jumpVelocity = 0;
           grounded = true;
-        } else if (playerY <= groundY(x, z)) {
-          playerY = groundY(x, z);
+        } else if (playerY < -14) {
+          // Keep the fall physical, but recover after leaving the playable
+          // world so a missed jump never strands the player off-camera.
+          x = SPAWN.x;
+          z = SPAWN.z;
+          playerY = surfaceY(x, z) ?? groundY(x, z);
           jumpVelocity = 0;
           grounded = true;
         }
@@ -239,7 +252,7 @@ export function mountIsland(host: HTMLElement): GameApi {
       remote.x = THREE.MathUtils.damp(remote.x, remote.tx, 8, dt);
       remote.z = THREE.MathUtils.damp(remote.z, remote.tz, 8, dt);
       remote.ry = dampAngle(remote.ry, remote.try, dt);
-      remote.avatar.group.position.set(remote.x, groundY(remote.x, remote.z), remote.z);
+      remote.avatar.group.position.set(remote.x, surfaceY(remote.x, remote.z) ?? groundY(remote.x, remote.z), remote.z);
       remote.avatar.group.rotation.y = remote.ry;
       remote.avatar.update(dt);
     }
@@ -256,7 +269,7 @@ export function mountIsland(host: HTMLElement): GameApi {
       x = SPAWN.x;
       z = SPAWN.z;
       ry = 0;
-      playerY = groundY(x, z);
+      playerY = surfaceY(x, z) ?? groundY(x, z);
       jumpVelocity = 0;
       grounded = true;
       cameraYaw = 0;

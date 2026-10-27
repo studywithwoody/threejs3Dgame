@@ -101,13 +101,13 @@ export function groundY(x: number, z: number) {
   return 1;
 }
 
-export function surfaceY(x: number, z: number) {
-  let surface = groundY(x, z);
+export function surfaceY(x: number, z: number): number | null {
+  let surface: number | null = null;
   for (const platform of PLATFORM_SURFACES) {
     if (
       Math.abs(x - platform.x) <= platform.width * 0.5 &&
       Math.abs(z - platform.z) <= platform.depth * 0.5
-    ) surface = Math.max(surface, platform.top);
+    ) surface = surface === null ? platform.top : Math.max(surface, platform.top);
   }
   return surface;
 }
