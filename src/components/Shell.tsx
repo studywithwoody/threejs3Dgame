@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import IslandStage from "@/components/IslandStage";
+import PetRoom3D from "@/components/PetRoom3D";
 import { authClient } from "@/lib/auth-client";
 import { AVATAR_COLORS, cleanNickname, colorFromId, displayName } from "@/lib/profile";
 import { stationOrderRef, uiBridge } from "@/game/bridge";
@@ -629,12 +630,10 @@ export function Shell() {
       {roomOpen && me ? (
         <div className="gate">
           <section className="card room-card" role="dialog" aria-labelledby="room-title">
-            <div className="room-scene">
-              <span className="room-cloud">☁️</span>
-              <span className="room-window">◌ ◌ ◌</span>
-              <div className="room-pet" aria-label={displayPet?.name ?? "寵物"}>{petEmoji(displayPet)}</div>
-              <span className="room-rug" />
-            </div>
+            <PetRoom3D
+              pet={displayPet}
+              onInteract={() => setPetNote(displayPet?.status === "sick" ? "小曙蹭了蹭你的手，但看起來還是需要休息。" : "小曙開心地跳起來！牠知道你一直陪著牠。")}
+            />
             <p className="eyebrow">MY ROOM · 寵物養成</p>
             <h2 id="room-title">{displayPet?.name ?? "小曙"} 的小房間</h2>
             <p>{petStatusText(displayPet)}</p>
