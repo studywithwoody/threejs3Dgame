@@ -250,7 +250,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   .side { top: auto; bottom: 18px; right: 12px; left: auto; width: min(230px, 58vw); max-height: 32dvh; }
   .brand h1 { font-size: 28px; }
   .brand p { display: none; }
-  .progress-pill { left: 28px; transform: none; }
+  .progress-pill { top: 86px; left: 28px; transform: none; }
   .pet-room-3d { height: 230px; }
   .camera-controls button { min-width: 34px; min-height: 34px; }
   .island-camera-controls { top: 0; right: 0; bottom: auto; left: auto; border-top-right-radius: 0; border-bottom-right-radius: 0; }

@@ -289,10 +289,9 @@ export function Shell() {
       }
       netRef.current = conn;
       setMode(conn.mode);
-      addNotification(conn.warning);
       conn.sendProgress(current);
     },
-    [addNotification, status?.databaseConfigured],
+    [status?.databaseConfigured],
   );
 
   useEffect(() => {
@@ -545,7 +544,6 @@ export function Shell() {
 
       <Notifications
         notifications={notifications}
-        completed={Boolean(questions && progress.solved.length === questions.length && questions.length > 0)}
       />
 
       {me ? (

@@ -29,20 +29,14 @@ function NotificationCard({ message }: { message: string }) {
 
 export default function Notifications({
   notifications,
-  completed,
 }: {
   notifications: IslandNotification[];
-  completed: boolean;
 }) {
-  const items = completed
-    ? [...notifications, { id: "island-complete", message: "燈塔亮了。曙島的五個徽章都收集齊了。" }]
-    : notifications;
-
-  if (items.length === 0) return null;
+  if (notifications.length === 0) return null;
 
   return (
     <section className="notifications" aria-label="島嶼通知">
-      {items.map((notification) => (
+      {notifications.map((notification) => (
         <NotificationCard key={notification.id} message={notification.message} />
       ))}
     </section>
