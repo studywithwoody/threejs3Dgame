@@ -71,7 +71,7 @@ export function mountIsland(host: HTMLElement): GameApi {
   let cameraYaw = 0;
   let cameraPitch = 0.4;
   let distance = 12;
-  let playerY = 0;
+  let playerY = groundY(SPAWN.x, SPAWN.z);
   let jumpVelocity = 0;
   let grounded = true;
   let nearbyId: string | null = null;
@@ -194,8 +194,8 @@ export function mountIsland(host: HTMLElement): GameApi {
           playerY = landingY;
           jumpVelocity = 0;
           grounded = true;
-        } else if (playerY <= 0) {
-          playerY = 0;
+        } else if (playerY <= groundY(x, z)) {
+          playerY = groundY(x, z);
           jumpVelocity = 0;
           grounded = true;
         }
@@ -256,7 +256,7 @@ export function mountIsland(host: HTMLElement): GameApi {
       x = SPAWN.x;
       z = SPAWN.z;
       ry = 0;
-      playerY = 0;
+      playerY = groundY(x, z);
       jumpVelocity = 0;
       grounded = true;
       cameraYaw = 0;
