@@ -144,5 +144,9 @@ export function isWalkable(x: number, z: number) {
   if (blocked(x, z)) return false;
   if (onDock(x, z)) return true;
   const theta = Math.atan2(z, x);
-  return Math.hypot(x, z) <= islandRadius(theta) - 0.75;
+  // Keep a small margin for the avatar itself, but include the outer edge of
+  // the authored map. The scene's terrain blocks can extend beyond the
+  // procedural island mesh, so using the old inward-only margin made the
+  // outer forest/highland blocks unreachable.
+  return Math.hypot(x, z) <= islandRadius(theta) + 1.25;
 }
