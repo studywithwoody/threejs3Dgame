@@ -509,6 +509,10 @@ export function Shell() {
   const myEggs = me ? progress.eggs[me.id] ?? [] : [];
   const selectedPet = myPets.find((candidate) => candidate.id === selectedPetId) ?? myPets[0];
   const displayPet = selectedPet ? { ...selectedPet, status: petStatus(selectedPet.lastFedAt) } : undefined;
+  const roomPets = useMemo(
+    () => myPets.map((pet) => ({ ...pet, status: petStatus(pet.lastFedAt) })),
+    [myPets],
+  );
   const people = dedupePeople(me, roster);
   const leaders = Object.entries(progress.scores)
     .map(([id, points]) => ({
@@ -732,8 +736,11 @@ export function Shell() {
               ×
             </button>
             <PetRoom3D
-              pet={displayPet}
-              onInteract={() => setPetNote(displayPet?.status === "sick" ? "牠蹭了蹭你的手，但看起來還是需要休息。" : "牠開心地跳起來！牠知道你一直陪著牠。")}
+              pets={roomPets}
+              onInteract={(pet) => {
+                setSelectedPetId(pet.id);
+                setPetNote(pet.status === "sick" ? `${pet.name}蹭了蹭你的手，但看起來還是需要休息。` : `${pet.name}開心地跳起來！牠知道你一直陪著牠。`);
+              }}
             />
             <p className="eyebrow">MY ROOM · 寵物養成</p>
             <h2 id="room-title">{displayPet?.name ?? "我的寵物小屋"}</h2>
