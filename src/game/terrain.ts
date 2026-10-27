@@ -28,6 +28,8 @@ export type PlatformSurface = {
 export type SurfaceAnchor = {
   x: number;
   z: number;
+  width: number;
+  depth: number;
   top: number;
 };
 
@@ -67,11 +69,13 @@ export function nearestPlatformAnchor(x: number, z: number): SurfaceAnchor {
     best = {
       x: Math.min(Math.max(x, platform.x - platform.width * 0.5), platform.x + platform.width * 0.5),
       z: Math.min(Math.max(z, platform.z - platform.depth * 0.5), platform.z + platform.depth * 0.5),
+      width: platform.width,
+      depth: platform.depth,
       top: platform.top,
     };
   }
 
-  return best ?? { x, z, top: groundY(x, z) };
+  return best ?? { x, z, width: 0, depth: 0, top: groundY(x, z) };
 }
 
 export const BLOCKERS = [

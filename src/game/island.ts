@@ -152,17 +152,32 @@ function buildReferenceScene(scene: THREE.Scene) {
 
       const isSupport = config.category === "terrain" || config.category === "snow" || config.category === "platform";
       const anchor = isSupport
-        ? { x: config.position[0], z: config.position[2], top: config.position[1] }
+        ? { x: config.position[0], z: config.position[2], width: 0, depth: 0, top: config.position[1] }
         : nearestPlatformAnchor(config.position[0], config.position[2]);
 
       // GLB files have different local origins. Measure the scaled and
       // rotated model at Y=0, then move its lowest point onto the platform.
       // This avoids props floating above blocks or sinking into their tops.
       model.position.set(anchor.x, 0, anchor.z);
-      const bounds = new THREE.Box3().setFromObject(model);
+      let bounds = new THREE.Box3().setFromObject(model);
+      if (!isSupport) {
+        // Keep the complete prop footprint on the selected block. This is
+        // important for trees, crates and ladders whose origins are often at
+        // the centre rather than at their visible base.
+        const margin = 0.08;
+        const left = anchor.x - anchor.width * 0.5 + margin;
+        const right = anchor.x + anchor.width * 0.5 - margin;
+        const front = anchor.z - anchor.depth * 0.5 + margin;
+        const back = anchor.z + anchor.depth * 0.5 - margin;
+        if (bounds.min.x < left) model.position.x += left - bounds.min.x;
+        if (bounds.max.x > right) model.position.x += right - bounds.max.x;
+        if (bounds.min.z < front) model.position.z += front - bounds.min.z;
+        if (bounds.max.z > back) model.position.z += back - bounds.max.z;
+        bounds = new THREE.Box3().setFromObject(model);
+      }
       model.position.y = isSupport
         ? config.position[1]
-        : anchor.top - bounds.min.y + 0.025;
+        : anchor.top - bounds.min.y + 0.015;
       model.traverse((child) => {
         child.castShadow = true;
         child.receiveShadow = true;
