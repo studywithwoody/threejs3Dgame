@@ -3,7 +3,7 @@ import { CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import { makeAvatar, type Avatar } from "@/game/avatar";
 import { uiBridge } from "@/game/bridge";
 import { buildIsland } from "@/game/island";
-import { SPAWN, groundY, isWalkable } from "@/game/terrain";
+import { SPAWN, groundY, isWalkable, surfaceY } from "@/game/terrain";
 import type { IslandProgress, Pose, Profile } from "@/game/types";
 import type { CameraAdjustment } from "@/components/CameraControls";
 
@@ -62,8 +62,9 @@ export function mountIsland(host: HTMLElement): GameApi {
   let cameraYaw = 0;
   let cameraPitch = 0.4;
   let distance = 12;
-  let jumpHeight = 0;
+  let playerY = 0;
   let jumpVelocity = 0;
+  let grounded = true;
   let nearbyId: string | null = null;
   let solved = new Set<string>();
   let lastPoseAt = 0;
@@ -89,7 +90,10 @@ export function mountIsland(host: HTMLElement): GameApi {
     if (uiBridge.typing) return;
     keys.add(event.key.toLowerCase());
     if (event.key === " " || event.key.startsWith("Arrow")) event.preventDefault();
-    if (event.key === " " && playing && !uiBridge.typing && jumpHeight <= 0.01) jumpVelocity = 8.5;
+    if (event.key === " " && playing && !uiBridge.typing && grounded) {
+      grounded = false;
+      jumpVelocity = 8.5;
+    }
     if (event.key.toLowerCase() === "e") uiBridge.onInteract();
   };
   const onKeyUp = (event: KeyboardEvent) => {
@@ -154,22 +158,42 @@ export function mountIsland(host: HTMLElement): GameApi {
       const cos = Math.cos(cameraYaw);
       const dx = (sin * iy - cos * ix) * speed * dt;
       const dz = (cos * iy + sin * ix) * speed * dt;
-      if (isWalkable(x + dx, z)) x += dx;
-      if (isWalkable(x, z + dz)) z += dz;
+      const move = (nextX: number, nextZ: number) => {
+        if (!isWalkable(nextX, nextZ)) return false;
+        const nextSurface = surfaceY(nextX, nextZ);
+        if (grounded && nextSurface - playerY > 0.85) return false;
+        x = nextX;
+        z = nextZ;
+        if (grounded) playerY = nextSurface;
+        return true;
+      };
+      move(x + dx, z);
+      move(x, z + dz);
       if (Math.hypot(dx, dz) > 0.0008) {
         ry = Math.atan2(dx, dz);
         moved = true;
       }
-      jumpVelocity -= 24 * dt;
-      jumpHeight = Math.max(0, jumpHeight + jumpVelocity * dt);
-      if (jumpHeight === 0) jumpVelocity = 0;
+      if (!grounded) {
+        const previousY = playerY;
+        jumpVelocity -= 24 * dt;
+        playerY += jumpVelocity * dt;
+        const landingY = surfaceY(x, z);
+        if (jumpVelocity <= 0 && previousY >= landingY && playerY <= landingY) {
+          playerY = landingY;
+          jumpVelocity = 0;
+          grounded = true;
+        } else if (playerY <= 0) {
+          playerY = 0;
+          jumpVelocity = 0;
+          grounded = true;
+        }
+      }
       if (world.tryCollectCoin(x, z)) uiBridge.onCoinCollected();
-      const gy = groundY(x, z);
       const bob = Math.sin(time * (moved ? 9 : 2)) * (moved ? 0.05 : 0.015);
-      local.group.position.set(x, gy + bob + jumpHeight, z);
+      local.group.position.set(x, playerY + bob, z);
       local.group.rotation.y = ry;
       local.update(dt);
-      const cameraTargetY = gy + 1.35 + jumpHeight * 0.35;
+      const cameraTargetY = playerY + 1.35;
       const horizontalDistance = Math.cos(cameraPitch) * distance;
       desired.set(
         x - Math.sin(cameraYaw) * horizontalDistance,
@@ -220,8 +244,9 @@ export function mountIsland(host: HTMLElement): GameApi {
       x = SPAWN.x;
       z = SPAWN.z;
       ry = 0;
-      jumpHeight = 0;
+      playerY = 0;
       jumpVelocity = 0;
+      grounded = true;
       cameraYaw = 0;
       cameraPitch = 0.4;
       distance = 12;

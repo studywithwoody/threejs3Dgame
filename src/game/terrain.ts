@@ -15,6 +15,28 @@ export const PLACES: Place[] = [
 
 export const SPAWN = { x: 0.4, z: -14.2 };
 
+export type PlatformSurface = {
+  x: number;
+  z: number;
+  width: number;
+  depth: number;
+  top: number;
+};
+
+// These surfaces mirror the raised Kenney blocks in island.ts. They are used
+// for landing only; the visible geometry still comes entirely from the kit.
+export const PLATFORM_SURFACES: PlatformSurface[] = [
+  { x: -6, z: -6, width: 4.8, depth: 4.8, top: 3.7 },
+  { x: 0, z: -1, width: 4.8, depth: 4.8, top: 4.4 },
+  { x: 6, z: 3, width: 5.2, depth: 5.2, top: 6.1 },
+  { x: 3, z: 12, width: 6.8, depth: 3.4, top: 3.6 },
+  { x: -8, z: 9, width: 4.8, depth: 4.8, top: 4.8 },
+  { x: -12, z: -3, width: 3.8, depth: 3.8, top: 2.6 },
+  { x: 11, z: -6, width: 4.2, depth: 4.2, top: 3.2 },
+  { x: -12, z: 6, width: 4.4, depth: 4.4, top: 4.0 },
+  { x: 12, z: 12, width: 4.8, depth: 4.8, top: 3.0 },
+];
+
 export const BLOCKERS = [
   { x: 0.2, z: 10.4, r: 1.85 },
   { x: 14.4, z: 2.1, r: 2.15 },
@@ -40,6 +62,17 @@ export function groundY(x: number, z: number) {
   void z;
   // The visible floor is assembled from Kenney Platformer Kit blocks at y=0.
   return 0;
+}
+
+export function surfaceY(x: number, z: number) {
+  let surface = 0;
+  for (const platform of PLATFORM_SURFACES) {
+    if (
+      Math.abs(x - platform.x) <= platform.width * 0.5 &&
+      Math.abs(z - platform.z) <= platform.depth * 0.5
+    ) surface = Math.max(surface, platform.top);
+  }
+  return surface;
 }
 
 function blocked(x: number, z: number) {

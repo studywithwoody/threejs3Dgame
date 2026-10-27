@@ -168,6 +168,10 @@ function buildPlatformerCourse(scene: THREE.Scene, keep: <T extends { dispose: (
     ["block-grass-large", 6, 4.8, 3, 1.65],
     ["block-grass-long", 3, 2.4, 12, 1.55],
     ["block-moving-blue", -8, 3.6, 9, 1.7],
+    ["block-grass-low", -12, 1.4, -3, 1.4],
+    ["block-grass-corner", 11, 2.0, -6, 1.5],
+    ["platform-overhang", -12, 3.0, 6, 1.4],
+    ["block-grass-large-slope", 12, 1.8, 12, 1.6],
   ];
   for (const [name, x, y, z, scale] of raisedPlatforms) {
     if (name === "block-moving-blue") {
