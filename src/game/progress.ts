@@ -67,6 +67,7 @@ export function award(
     solved: [...state.solved, stationId],
     scores: { ...state.scores, [playerId]: (state.scores[playerId] ?? 0) + POINTS_PER_STATION },
     names: { ...state.names, [playerId]: playerName },
+    pets: state.pets,
   };
 }
 
@@ -112,7 +113,7 @@ export function refreshPet(pet: PetState, now = Date.now()): PetState {
   return { ...pet, status: petStatus(pet.lastFedAt, now) };
 }
 
-export function feedPet(state: IslandProgress, playerId: string, now = Date.now(), cost = 5) {
+export function feedPet(state: IslandProgress, playerId: string, now = Date.now(), cost = 5): IslandProgress | null {
   const score = state.scores[playerId] ?? 0;
   const pet = state.pets[playerId];
   if (!pet || refreshPet(pet, now).status === "dead" || score < cost) return null;
@@ -121,12 +122,12 @@ export function feedPet(state: IslandProgress, playerId: string, now = Date.now(
     scores: { ...state.scores, [playerId]: score - cost },
     pets: {
       ...state.pets,
-      [playerId]: { ...pet, lastFedAt: now, status: "healthy", feedings: pet.feedings + 1 },
+      [playerId]: { ...pet, lastFedAt: now, status: "healthy" as const, feedings: pet.feedings + 1 },
     },
   };
 }
 
-export function adoptPet(state: IslandProgress, playerId: string, now = Date.now(), cost = 10) {
+export function adoptPet(state: IslandProgress, playerId: string, now = Date.now(), cost = 10): IslandProgress | null {
   const score = state.scores[playerId] ?? 0;
   const pet = state.pets[playerId];
   if (!pet || refreshPet(pet, now).status !== "dead" || score < cost) return null;
