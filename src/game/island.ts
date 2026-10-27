@@ -3,7 +3,7 @@ import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { PLACES, groundY, islandRadius, isWalkable, nearestPlatformAnchor } from "@/game/terrain";
 import { platformerKitPath } from "@/game/platformerKit/registry";
-import { PLATFORMER_SCENE_OBJECTS, SCENE_EDITOR_OVERRIDES, type SceneObject, type SceneRegion } from "@/game/platformerKit/sceneConfig";
+import { PLATFORMER_SCENE_OBJECTS, type SceneObjectRecord, type SceneObject, type SceneRegion } from "@/game/platformerKit/sceneConfig";
 
 const WOOD = "#b8743d";
 const WOOD_DARK = "#8a552c";
@@ -22,10 +22,13 @@ export type IslandWorld = {
   update: (time: number, solved: ReadonlySet<string>) => void;
   tryCollectCoin: (x: number, z: number) => boolean;
   getEditableObjects: () => ReadonlyMap<string, THREE.Object3D>;
+  getSceneObjects: () => SceneObjectRecord[];
+  addSceneObject: (object: SceneObjectRecord) => Promise<void>;
+  removeSceneObject: (id: string) => void;
   dispose: () => void;
 };
 
-export function buildIsland(scene: THREE.Scene): IslandWorld {
+export function buildIsland(scene: THREE.Scene, sceneObjects: SceneObjectRecord[] = toSceneRecords(PLATFORMER_SCENE_OBJECTS)): IslandWorld {
   const disposables: { dispose: () => void }[] = [];
   const keep = <T extends { dispose: () => void }>(object: T): T => {
     disposables.push(object);
@@ -106,7 +109,7 @@ export function buildIsland(scene: THREE.Scene): IslandWorld {
   keep(waterGeo);
   keep(waterMat);
 
-  const course = buildReferenceScene(scene);
+  const course = buildReferenceScene(scene, sceneObjects);
 
   return {
     update(time, solved) {
@@ -119,13 +122,22 @@ export function buildIsland(scene: THREE.Scene): IslandWorld {
     getEditableObjects() {
       return course.getEditableObjects();
     },
+    getSceneObjects() {
+      return course.getSceneObjects();
+    },
+    async addSceneObject(object) {
+      await course.addSceneObject(object);
+    },
+    removeSceneObject(id) {
+      course.removeSceneObject(id);
+    },
     dispose() {
       for (const item of disposables) item.dispose();
     },
   };
 }
 
-function buildReferenceScene(scene: THREE.Scene) {
+function buildReferenceScene(scene: THREE.Scene, sceneObjects: SceneObjectRecord[]) {
   const worldScene = new THREE.Group();
   worldScene.name = "WorldScene";
   const regions = new Map<SceneRegion, THREE.Group>();
@@ -138,10 +150,10 @@ function buildReferenceScene(scene: THREE.Scene) {
   scene.add(worldScene);
 
   const instances = new Map<string, THREE.Object3D>();
-  const collectibles = PLATFORMER_SCENE_OBJECTS.filter((item) => item.collectible);
+  const records = new Map<string, SceneObjectRecord>(sceneObjects.map((object) => [object.id, object]));
   const initialY = new Map<string, number>();
 
-  for (const config of PLATFORMER_SCENE_OBJECTS) {
+  const loadSceneObject = (config: SceneObjectRecord) => {
     const path = platformerKitPath(config.assetId);
     let request = kitCache.get(path);
     if (!request) {
@@ -150,37 +162,22 @@ function buildReferenceScene(scene: THREE.Scene) {
     }
     void request.then((gltf) => {
       const model = gltf.scene.clone(true);
-      const override = SCENE_EDITOR_OVERRIDES[config.id];
-      const position = override?.position ?? config.position;
-      const rotation = override?.rotation ?? config.rotation;
-      const scale = override?.scale ?? config.scale;
       model.name = config.id;
-      model.rotation.set(...rotation);
-      model.scale.set(...scale);
-
-      if (override) {
-        model.position.set(...position);
-        model.traverse((child) => {
-          child.castShadow = true;
-          child.receiveShadow = true;
-        });
-        regions.get(config.region)?.add(model);
-        instances.set(config.id, model);
-        initialY.set(config.id, model.position.y);
-        return;
-      }
+      model.rotation.set(...config.rotation);
+      model.scale.set(...config.scale);
 
       const isSupport = config.category === "terrain" || config.category === "snow" || config.category === "platform";
       const anchor = isSupport
-        ? { x: position[0], z: position[2], width: 0, depth: 0, top: position[1] }
-        : nearestPlatformAnchor(position[0], position[2]);
+        ? { x: config.position[0], z: config.position[2], width: 0, depth: 0, top: config.position[1] }
+        : nearestPlatformAnchor(config.position[0], config.position[2]);
 
       // GLB files have different local origins. Measure the scaled and
       // rotated model at Y=0, then move its lowest point onto the platform.
       // This avoids props floating above blocks or sinking into their tops.
-      model.position.set(anchor.x, 0, anchor.z);
+      model.position.set(...config.position);
+      if (config.autoAnchor) model.position.set(anchor.x, 0, anchor.z);
       let bounds = new THREE.Box3().setFromObject(model);
-      if (!isSupport) {
+      if (config.autoAnchor && !isSupport) {
         // Keep the complete prop footprint on the selected block. This is
         // important for trees, crates and ladders whose origins are often at
         // the centre rather than at their visible base.
@@ -195,9 +192,12 @@ function buildReferenceScene(scene: THREE.Scene) {
         if (bounds.max.z > back) model.position.z += back - bounds.max.z;
         bounds = new THREE.Box3().setFromObject(model);
       }
-      model.position.y = isSupport
-        ? position[1]
-        : anchor.top - bounds.min.y + 0.015;
+      if (config.autoAnchor) {
+        model.position.y = isSupport
+          ? config.position[1]
+          : anchor.top - bounds.min.y + 0.015;
+      }
+      model.visible = config.visible;
       model.traverse((child) => {
         child.castShadow = true;
         child.receiveShadow = true;
@@ -208,14 +208,27 @@ function buildReferenceScene(scene: THREE.Scene) {
     }).catch(() => {
       // Keep the scene deterministic when an optional browser request fails.
     });
-  }
+  };
+
+  sceneObjects.forEach(loadSceneObject);
+
+  const removeSceneObject = (id: string) => {
+    const model = instances.get(id);
+    if (model) {
+      model.parent?.remove(model);
+      instances.delete(id);
+    }
+    records.delete(id);
+    initialY.delete(id);
+  };
 
   return {
     getEditableObjects() {
       return instances;
     },
     update(time: number) {
-      for (const config of collectibles) {
+      for (const config of records.values()) {
+        if (!config.collectible) continue;
         const model = instances.get(config.id);
         if (!model) continue;
         model.rotation.y = time * 2.4;
@@ -225,16 +238,48 @@ function buildReferenceScene(scene: THREE.Scene) {
       if (floating) floating.position.x = 9 + Math.sin(time * 1.1) * 2.5;
     },
     tryCollectCoin(x: number, z: number) {
-      for (const config of collectibles) {
-        if (Math.hypot(config.position[0] - x, config.position[2] - z) > 1.5) continue;
+      for (const config of records.values()) {
+        if (!config.collectible) continue;
         const model = instances.get(config.id);
         if (!model || !model.visible) continue;
+        if (Math.hypot(model.position.x - x, model.position.z - z) > 1.5) continue;
         model.visible = false;
         return true;
       }
       return false;
     },
+    getSceneObjects() {
+      return [...records.values()].map((config) => {
+        const model = instances.get(config.id);
+        if (!model) return config;
+        return {
+          ...config,
+          position: model.position.toArray() as [number, number, number],
+          rotation: [model.rotation.x, model.rotation.y, model.rotation.z] as [number, number, number],
+          scale: model.scale.toArray() as [number, number, number],
+          visible: model.visible,
+          autoAnchor: false,
+        };
+      });
+    },
+    addSceneObject(config: SceneObjectRecord) {
+      removeSceneObject(config.id);
+      records.set(config.id, config);
+      return loadSceneObject(config);
+    },
+    removeSceneObject(id: string) {
+      removeSceneObject(id);
+    },
   };
+}
+
+function toSceneRecords(objects: SceneObject[]): SceneObjectRecord[] {
+  return objects.map((object) => ({
+    ...object,
+    collectible: Boolean(object.collectible),
+    visible: true,
+    autoAnchor: true,
+  }));
 }
 
 function buildPlatformerCourse(scene: THREE.Scene, keep: <T extends { dispose: () => void }>(item: T) => T) {

@@ -1,6 +1,6 @@
 export * from "./auth-schema";
 
-import { integer, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, primaryKey, real, text, timestamp } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 
 /** One private progress row per authenticated user. */
@@ -44,3 +44,29 @@ export const scoreTransactions = pgTable("score_transaction", {
   referenceId: text("reference_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const sceneObjects = pgTable("scene_object", {
+  sceneId: text("scene_id").notNull().default("main-island"),
+  objectId: text("object_id").notNull(),
+  assetId: text("asset_id").notNull(),
+  category: text("category").notNull(),
+  region: text("region").notNull(),
+  positionX: real("position_x").notNull(),
+  positionY: real("position_y").notNull(),
+  positionZ: real("position_z").notNull(),
+  rotationX: real("rotation_x").notNull(),
+  rotationY: real("rotation_y").notNull(),
+  rotationZ: real("rotation_z").notNull(),
+  scaleX: real("scale_x").notNull(),
+  scaleY: real("scale_y").notNull(),
+  scaleZ: real("scale_z").notNull(),
+  visible: boolean("visible").notNull().default(true),
+  collectible: boolean("collectible").notNull().default(false),
+  autoAnchor: boolean("auto_anchor").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+}, (table) => [
+  primaryKey({ columns: [table.sceneId, table.objectId] }),
+  index("scene_object_scene_id_idx").on(table.sceneId),
+]);

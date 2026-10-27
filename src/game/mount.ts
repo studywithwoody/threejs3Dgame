@@ -5,7 +5,9 @@ import { TransformControls } from "three/examples/jsm/controls/TransformControls
 import { makeAvatar, type Avatar } from "@/game/avatar";
 import { uiBridge } from "@/game/bridge";
 import { buildIsland } from "@/game/island";
-import { SPAWN, groundY, isWalkable, surfaceY } from "@/game/terrain";
+import { configureTerrain, SPAWN, groundY, isWalkable, surfaceY } from "@/game/terrain";
+import { PLATFORMER_KIT_ASSETS, type PlatformerKitCategory } from "@/game/platformerKit/registry";
+import type { SceneObjectRecord, SceneRegion } from "@/game/platformerKit/sceneConfig";
 import type { IslandProgress, Pose, Profile } from "@/game/types";
 import type { CameraAdjustment } from "@/components/CameraControls";
 
@@ -21,6 +23,7 @@ export type GameApi = {
   nearby: () => string | null;
   adjustCamera: (change: CameraAdjustment) => void;
   resetCamera: () => void;
+  setEditorAccess: (allowed: boolean) => void;
   dispose: () => void;
 };
 
@@ -35,7 +38,7 @@ type Remote = {
   seen: number;
 };
 
-export function mountIsland(host: HTMLElement): GameApi {
+export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[], canEditScene = true): GameApi {
   const canvas = document.createElement("canvas");
   const labels = document.createElement("div");
   labels.className = "labels";
@@ -53,7 +56,8 @@ export function mountIsland(host: HTMLElement): GameApi {
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-12, 12, 8, -8, 0.1, 400);
   camera.position.set(36, 28, 36);
-  const world = buildIsland(scene);
+  configureTerrain(sceneObjects);
+  const world = buildIsland(scene, sceneObjects);
   const orbitControls = new OrbitControls(camera, canvas);
   orbitControls.enableDamping = true;
   orbitControls.enablePan = true;
@@ -82,19 +86,37 @@ export function mountIsland(host: HTMLElement): GameApi {
   editorHud.hidden = true;
   host.append(editorHud);
   let editorEnabled = false;
+  let editorCanWrite = canEditScene;
   let editorDragging = false;
   let selectedEditorObject: THREE.Object3D | null = null;
   let selectedEditorId: string | null = null;
-  let editorSaveTimer: number | null = null;
+  let editorDirty = false;
   const editorHudInfo = document.createElement("div");
   const editorSaveButton = document.createElement("button");
   editorSaveButton.type = "button";
-  editorSaveButton.textContent = "儲存調整";
-  editorHud.append(editorHudInfo, editorSaveButton);
+  editorSaveButton.textContent = "儲存場景";
+  const editorTools = document.createElement("div");
+  editorTools.className = "scene-editor-tools";
+  const assetSelect = document.createElement("select");
+  assetSelect.setAttribute("aria-label", "選擇素材");
+  assetSelect.innerHTML = PLATFORMER_KIT_ASSETS.map((asset) => `<option value="${asset.id}">${asset.id}</option>`).join("");
+  const regionSelect = document.createElement("select");
+  regionSelect.setAttribute("aria-label", "選擇區域");
+  regionSelect.innerHTML = ["forest", "snow-mountain", "snow-valley", "highland", "floating"].map((region) => `<option value="${region}">${region}</option>`).join("");
+  const addButton = document.createElement("button");
+  addButton.type = "button";
+  addButton.textContent = "新增素材";
+  const deleteButton = document.createElement("button");
+  deleteButton.type = "button";
+  deleteButton.textContent = "刪除選取";
+  editorTools.append(assetSelect, regionSelect, addButton, deleteButton);
+  editorHud.append(editorHudInfo, editorTools, editorSaveButton);
 
   const updateEditorHud = () => {
     if (!editorEnabled) return;
-    editorSaveButton.disabled = !selectedEditorObject || !selectedEditorId;
+    editorSaveButton.disabled = !editorDirty;
+    deleteButton.disabled = !selectedEditorId;
+    editorTools.hidden = !editorEnabled;
     if (!selectedEditorObject || !selectedEditorId) {
       editorHudInfo.textContent = "場景編輯器 · 點擊素材以選取";
       return;
@@ -112,41 +134,28 @@ export function mountIsland(host: HTMLElement): GameApi {
     updateEditorHud();
   };
 
-  const saveEditorObject = async () => {
-    if (!selectedEditorObject || !selectedEditorId) return;
-    if (editorSaveTimer !== null) {
-      window.clearTimeout(editorSaveTimer);
-      editorSaveTimer = null;
-    }
-    const object = selectedEditorObject;
-    const id = selectedEditorId;
-    await fetch("/api/scene-editor", {
-      method: "POST",
+  const saveEditorScene = async () => {
+    const objects = world.getSceneObjects();
+    const response = await fetch("/api/scene-editor", {
+      method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        id,
-        position: object.position.toArray(),
-        rotation: [object.rotation.x, object.rotation.y, object.rotation.z],
-        scale: object.scale.toArray(),
-      }),
-    }).catch(() => {
-      // Keep the editor usable if the local save endpoint is unavailable.
-    });
+      body: JSON.stringify({ sceneId: "main-island", objects }),
+    }).catch(() => null);
+    if (!response?.ok) return false;
+    editorDirty = false;
+    updateEditorHud();
+    return true;
   };
 
-  const queueEditorSave = () => {
-    if (!selectedEditorObject || !selectedEditorId) return;
-    if (editorSaveTimer !== null) window.clearTimeout(editorSaveTimer);
-    editorSaveTimer = window.setTimeout(() => {
-      editorSaveTimer = null;
-      void saveEditorObject();
-    }, 250);
+  const markEditorDirty = () => {
+    editorDirty = true;
+    configureTerrain(world.getSceneObjects());
+    updateEditorHud();
   };
 
   const onEditorSave = () => {
-    void saveEditorObject();
+    void saveEditorScene();
   };
-  editorSaveButton.addEventListener("click", onEditorSave);
 
   const nudgeEditorObject = (x: number, y: number, z: number, accelerated = false) => {
     if (!selectedEditorObject) return;
@@ -156,7 +165,36 @@ export function mountIsland(host: HTMLElement): GameApi {
     selectedEditorObject.position.y += y * step;
     selectedEditorObject.position.z += z * step;
     refreshEditorBounds();
-    queueEditorSave();
+    markEditorDirty();
+  };
+
+  const onAddSceneObject = () => {
+    const asset = PLATFORMER_KIT_ASSETS.find((candidate) => candidate.id === assetSelect.value);
+    if (!asset) return;
+    const object: SceneObjectRecord = {
+      id: `editor-${asset.id}-${Date.now()}`,
+      assetId: asset.id,
+      category: asset.category as PlatformerKitCategory,
+      region: regionSelect.value as SceneRegion,
+      position: [0, 1, 0],
+      rotation: [0, 0, 0],
+      scale: [1, 1, 1],
+      visible: true,
+      collectible: asset.category === "collectible",
+      autoAnchor: false,
+    };
+    void world.addSceneObject(object).then(() => {
+      const added = world.getEditableObjects().get(object.id);
+      if (added) selectEditorObject(added, object.id);
+      markEditorDirty();
+    });
+  };
+
+  const onDeleteSceneObject = () => {
+    if (!selectedEditorId) return;
+    world.removeSceneObject(selectedEditorId);
+    selectEditorObject(null, null);
+    markEditorDirty();
   };
 
   const selectEditorObject = (object: THREE.Object3D | null, id: string | null) => {
@@ -174,6 +212,7 @@ export function mountIsland(host: HTMLElement): GameApi {
   };
 
   const setEditorEnabled = (enabled: boolean) => {
+    if (enabled && !editorCanWrite) return;
     editorEnabled = enabled;
     editorGrid.visible = enabled;
     editorAxes.visible = enabled;
@@ -207,7 +246,7 @@ export function mountIsland(host: HTMLElement): GameApi {
 
   const onTransformChange = () => {
     refreshEditorBounds();
-    queueEditorSave();
+    markEditorDirty();
   };
   const onTransformDragging = (event: { value: unknown }) => {
     editorDragging = event.value === true;
@@ -216,6 +255,15 @@ export function mountIsland(host: HTMLElement): GameApi {
   transformControls.addEventListener("change", onTransformChange);
   transformControls.addEventListener("dragging-changed", onTransformDragging);
   canvas.addEventListener("click", onEditorClick);
+  editorSaveButton.addEventListener("click", onEditorSave);
+  addButton.addEventListener("click", onAddSceneObject);
+  deleteButton.addEventListener("click", onDeleteSceneObject);
+
+  /*
+   * The editor saves a complete scene snapshot, rather than writing one
+   * object at a time. This keeps add/delete/transform changes atomic.
+   */
+  void 0;
 
   const keys = new Set<string>();
   let playing = false;
@@ -532,10 +580,13 @@ export function mountIsland(host: HTMLElement): GameApi {
       cameraPitch = 0.4;
       distance = 12;
     },
+    setEditorAccess(allowed) {
+      editorCanWrite = allowed;
+      if (!allowed && editorEnabled) setEditorEnabled(false);
+    },
     dispose() {
       running = false;
       cancelAnimationFrame(frame);
-      if (editorSaveTimer !== null) window.clearTimeout(editorSaveTimer);
       orbitControls.dispose();
       transformControls.removeEventListener("change", onTransformChange);
       transformControls.removeEventListener("dragging-changed", onTransformDragging);

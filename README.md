@@ -134,6 +134,20 @@ Better Auth 需要 `user`、`session`、`account`、`verification`。全班進�
 npm run db:migrate
 ```
 
+### 共用場景編輯器
+
+首頁場景會先由伺服器讀取 `scene_object` 資料表，再交給 Three.js 渲染。資料庫沒有場景資料時，會暫時使用 `sceneConfig.ts` 的預設場景；第一次儲存後，資料庫就成為正式來源。
+
+執行 migration 後，先將自己的登入帳號設為管理員（把 Email 換成自己的 Google 帳號）：
+
+```sql
+UPDATE "user" SET "role" = 'admin' WHERE "email" = 'teacher@example.com';
+```
+
+管理員登入後按 `F2` 開啟編輯模式，可以選取、移動、旋轉、縮放、新增或刪除 Platformer Kit 素材。調整完成後按「儲存場景」，整份場景會以 transaction 寫入資料庫；其他玩家重新載入後會看到新的共用場景。一般使用者仍只能讀取場景。
+
+`scene-editor-overrides.json` 只作為既有本機調整值的 fallback／初始 seed，不是正式環境的渲染來源。
+
 這會用 `DATABASE_URL_UNPOOLED`（沒有則用 `DATABASE_URL`）把 `drizzle/` 裡的 SQL 送到 Neon。沒有 `.env.local` 時改讀環境變數；同一個變數若環境裡已經有值，以環境為準。自動套用見下一節。資料庫只由伺服器存取，不需要 RLS 腳本。
 
 答題由 `POST /api/answer` 在伺服器核對 `data/questions.json` 的答案，再寫進 `island_progress`。瀏覽器拿不到正確選項的索引。沒有登入 session、但 Google 登入已設定時，這個路由會回 401。

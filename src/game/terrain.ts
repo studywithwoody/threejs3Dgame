@@ -1,4 +1,4 @@
-import { PLATFORMER_SCENE_OBJECTS } from "@/game/platformerKit/sceneConfig";
+import { PLATFORMER_SCENE_OBJECTS, type SceneObjectRecord } from "@/game/platformerKit/sceneConfig";
 
 export type Place = {
   id: string;
@@ -35,7 +35,21 @@ export type SurfaceAnchor = {
 
 // Derive collision surfaces from the same scene configuration that loads the
 // visible Kenney models, so a block's visual top and landing height cannot drift.
-export const PLATFORM_SURFACES: PlatformSurface[] = PLATFORMER_SCENE_OBJECTS
+export const PLATFORM_SURFACES: PlatformSurface[] = buildPlatformSurfaces(PLATFORMER_SCENE_OBJECTS.map((item) => ({
+  ...item,
+  collectible: Boolean(item.collectible),
+  visible: true,
+  autoAnchor: true,
+})));
+let activePlatformSurfaces = PLATFORM_SURFACES;
+
+export function configureTerrain(sceneObjects: SceneObjectRecord[]) {
+  activePlatformSurfaces = buildPlatformSurfaces(sceneObjects);
+}
+
+function buildPlatformSurfaces(sceneObjects: SceneObjectRecord[]): PlatformSurface[] {
+  return sceneObjects
+  .filter((item) => item.visible)
   .filter((item) => item.category === "terrain" || item.category === "snow" || item.category === "platform")
   .filter((item) => item.assetId.startsWith("block-") || item.assetId === "platform")
   .map((item) => {
@@ -51,6 +65,7 @@ export const PLATFORM_SURFACES: PlatformSurface[] = PLATFORMER_SCENE_OBJECTS
       top: item.position[1] + height,
     };
   });
+}
 
 // Return a point on the nearest visible Kenney platform. Objects use this
 // instead of relying on hand-tuned Y values, which keeps every decoration,
@@ -59,7 +74,7 @@ export function nearestPlatformAnchor(x: number, z: number): SurfaceAnchor {
   let best: SurfaceAnchor | undefined;
   let bestDistance = Number.POSITIVE_INFINITY;
 
-  for (const platform of PLATFORM_SURFACES) {
+  for (const platform of activePlatformSurfaces) {
     const dx = Math.max(Math.abs(x - platform.x) - platform.width * 0.5, 0);
     const dz = Math.max(Math.abs(z - platform.z) - platform.depth * 0.5, 0);
     const distance = dx * dx + dz * dz;
@@ -107,7 +122,7 @@ export function groundY(x: number, z: number) {
 
 export function surfaceY(x: number, z: number): number | null {
   let surface: number | null = null;
-  for (const platform of PLATFORM_SURFACES) {
+  for (const platform of activePlatformSurfaces) {
     if (
       Math.abs(x - platform.x) <= platform.width * 0.5 &&
       Math.abs(z - platform.z) <= platform.depth * 0.5

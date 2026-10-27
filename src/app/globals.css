@@ -47,6 +47,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   font: inherit;
 }
 .scene-editor-hud button:disabled { opacity: .45; cursor: not-allowed; }
+.scene-editor-tools { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.scene-editor-tools select { max-width: 145px; border: 1px solid #ffffff66; border-radius: 7px; padding: 5px 6px; background: #fff8f4; color: var(--ink); font: inherit; }
+.scene-editor-tools button { margin-top: 0; }
 .labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .vignette {
   position: absolute;

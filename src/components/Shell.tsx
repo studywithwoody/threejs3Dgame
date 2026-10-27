@@ -28,6 +28,7 @@ import {
 } from "@/game/progress";
 import { emptyProgress, type IslandProgress, type PetSpecies, type PetState, type Profile } from "@/game/types";
 import { petStatus } from "@/game/progress";
+import type { SceneObjectRecord } from "@/game/platformerKit/sceneConfig";
 
 type Status = {
   authConfigured: boolean;
@@ -44,6 +45,7 @@ type SessionUser = {
   nickname?: string | null;
   avatarColor?: string | null;
   avatarModel?: string | null;
+  role?: string | null;
 };
 
 type InfoCardKey = "progress" | "side";
@@ -73,7 +75,7 @@ function InfoCardToggle({
 
 const GUEST_KEY = "dawn-isle-guest";
 
-export function Shell() {
+export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjectRecord[] }) {
   const apiRef = useRef<GameApi | null>(null);
   const netRef = useRef<IslandConnection | null>(null);
   const generation = useRef(0);
@@ -448,7 +450,11 @@ export function Shell() {
 
   return (
     <main className="app">
-      <IslandStage api={apiRef} />
+      <IslandStage
+        api={apiRef}
+        sceneObjects={initialSceneObjects}
+        canEditScene={!status?.authConfigured || user?.role === "admin"}
+      />
       <CameraControls
         className="island-camera-controls"
         label="島嶼探索視角控制"
@@ -742,6 +748,7 @@ function SessionWatch({
             nickname: current.nickname,
             avatarColor: current.avatarColor,
             avatarModel: current.avatarModel,
+            role: (current as typeof current & { role?: string }).role,
           }
         : null,
       session.isPending,

@@ -55,6 +55,7 @@ function createAuth() {
         nickname: { type: "string", required: false },
         avatarColor: { type: "string", required: false },
         avatarModel: { type: "string", required: false },
+        role: { type: "string", required: false, defaultValue: "user" },
       },
     },
     session: {
