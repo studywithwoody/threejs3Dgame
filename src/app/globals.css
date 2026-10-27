@@ -28,7 +28,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   background: radial-gradient(ellipse at center, transparent 45%, rgba(90, 48, 32, 0.16) 100%);
 }
 
-.brand, .progress-pill, .banner, .ribbon, .side, .interact, .hint, .joystick, .gate {
+.brand, .progress-pill, .notifications, .side, .interact, .hint, .joystick, .gate {
   position: absolute;
   z-index: 2;
 }
@@ -62,7 +62,6 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   box-shadow: 0 8px 20px #4a2a1414;
   backdrop-filter: blur(10px);
 }
-.brand.is-collapsed { padding: 8px 44px 8px 10px; }
 .eyebrow {
   margin: 0;
   color: var(--coral);
@@ -91,24 +90,39 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   box-shadow: 0 8px 20px #4a2a1414;
 }
 .progress-pill em { font-style: italic; font-family: Georgia, serif; color: var(--coral); font-size: 22px; }
-.banner, .ribbon {
+.notifications {
   top: 118px;
   left: 28px;
   width: min(260px, calc(100% - 320px));
-  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.notification-card {
+  position: relative;
+  min-height: 38px;
   background: #fff8f4ee;
   border-radius: 14px;
-  padding: 8px 12px;
+  padding: 8px 44px 8px 12px;
   color: var(--muted);
   font-size: 13px;
+  box-shadow: 0 8px 20px #4a2a1414;
+  backdrop-filter: blur(10px);
 }
-.banner.info-card, .ribbon.info-card {
-  padding-right: 44px;
-  min-height: 38px;
+.notification-card.is-collapsed {
+  width: 44px;
+  padding: 5px;
 }
-.banner.info-card .info-card-content, .ribbon.info-card .info-card-content { display: block; }
-.banner.info-card.is-collapsed, .ribbon.info-card.is-collapsed { padding-right: 44px; }
-.ribbon { color: var(--ink); }
+.notification-message {
+  display: block;
+  line-height: 1.55;
+}
+.notification-card.is-collapsed .notification-message {
+  display: none;
+}
+.notification-card .info-card-toggle {
+  top: 5px;
+  right: 6px;
+}
 
 .side {
   top: 22px;

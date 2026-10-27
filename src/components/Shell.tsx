@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import IslandStage from "@/components/IslandStage";
 import CameraControls from "@/components/CameraControls";
+import Notifications, { type IslandNotification } from "@/components/Notifications";
 import PetRoom3D from "@/components/PetRoom3D";
 import { authClient } from "@/lib/auth-client";
 import { AVATAR_COLORS, cleanNickname, colorFromId, displayName } from "@/lib/profile";
@@ -53,7 +54,7 @@ type SessionUser = {
   avatarColor?: string | null;
 };
 
-type InfoCardKey = "brand" | "progress" | "banner" | "side";
+type InfoCardKey = "progress" | "side";
 
 function InfoCardToggle({
   label,
@@ -99,7 +100,7 @@ export function Shell() {
   const [progress, setProgress] = useState<IslandProgress>(emptyProgress);
   const [roster, setRoster] = useState<Profile[]>([]);
   const [mode, setMode] = useState<NetMode | null>(null);
-  const [banner, setBanner] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<IslandNotification[]>([]);
   const [nearby, setNearby] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
@@ -116,10 +117,20 @@ export function Shell() {
   const [roomOpen, setRoomOpen] = useState(false);
   const [petNote, setPetNote] = useState<string | null>(null);
   const [collapsedInfo, setCollapsedInfo] = useState<Partial<Record<InfoCardKey, boolean>>>({});
+  const notificationId = useRef(0);
 
   const toggleInfoCard = (key: InfoCardKey) => {
     setCollapsedInfo((previous) => ({ ...previous, [key]: !previous[key] }));
   };
+
+  const addNotification = useCallback((message: string | null | undefined) => {
+    if (!message) return;
+    notificationId.current += 1;
+    setNotifications((previous) => [
+      ...previous,
+      { id: `notification-${notificationId.current}`, message },
+    ]);
+  }, []);
 
   const order = useMemo(() => (questions ? stationOrder(questions) : []), [questions]);
   orderRef.current = order;
@@ -227,7 +238,7 @@ export function Shell() {
       const ticket = ++generation.current;
       netRef.current?.close();
       setMe(profile);
-      setBanner(null);
+      setNotifications([]);
       apiRef.current?.enter(profile);
       let current = progressRef.current;
       if (status?.databaseConfigured) {
@@ -268,10 +279,10 @@ export function Shell() {
       }
       netRef.current = conn;
       setMode(conn.mode);
-      setBanner(conn.warning ?? null);
+      addNotification(conn.warning);
       conn.sendProgress(current);
     },
-    [status?.databaseConfigured],
+    [addNotification, status?.databaseConfigured],
   );
 
   useEffect(() => {
@@ -455,7 +466,7 @@ export function Shell() {
     const result = await authClient.signIn.social({ provider: "google", callbackURL: "/" });
     if (result.error) {
       setSigningIn(false);
-      setBanner(result.error.message || "Google 登入沒有完成。");
+      addNotification(result.error.message || "Google 登入沒有完成。");
     }
   }
 
@@ -498,13 +509,10 @@ export function Shell() {
       <div className="vignette" />
       {status?.authConfigured ? <SessionWatch onSession={onSession} /> : null}
 
-      <header className={`brand info-card ${collapsedInfo.brand ? "is-collapsed" : ""}`}>
-        <InfoCardToggle label="島嶼介紹" collapsed={Boolean(collapsedInfo.brand)} onToggle={() => toggleInfoCard("brand")} />
-        <div className="info-card-content">
-          <p className="eyebrow">DAWN ISLE</p>
-          <h1>曙島</h1>
-          <p>五座物理站，全班一起點亮。</p>
-        </div>
+      <header className="brand">
+        <p className="eyebrow">DAWN ISLE</p>
+        <h1>曙島</h1>
+        <p>五座物理站，全班一起點亮。</p>
       </header>
 
       <section className={`progress-pill info-card ${collapsedInfo.progress ? "is-collapsed" : ""}`} aria-label="島的進度">
@@ -518,18 +526,10 @@ export function Shell() {
         </div>
       </section>
 
-      {banner ? (
-        <div className={`banner info-card ${collapsedInfo.banner ? "is-collapsed" : ""}`}>
-          <InfoCardToggle label="島嶼通知" collapsed={Boolean(collapsedInfo.banner)} onToggle={() => toggleInfoCard("banner")} />
-          <span className="info-card-content">{banner}</span>
-        </div>
-      ) : null}
-      {questions && progress.solved.length === questions.length && questions.length > 0 ? (
-        <div className={`ribbon info-card ${collapsedInfo.banner ? "is-collapsed" : ""}`}>
-          <InfoCardToggle label="島嶼通知" collapsed={Boolean(collapsedInfo.banner)} onToggle={() => toggleInfoCard("banner")} />
-          <span className="info-card-content">燈塔亮了。曙島的五個徽章都收集齊了。</span>
-        </div>
-      ) : null}
+      <Notifications
+        notifications={notifications}
+        completed={Boolean(questions && progress.solved.length === questions.length && questions.length > 0)}
+      />
 
       {me ? (
         <aside className={`side info-card ${collapsedInfo.side ? "is-collapsed" : ""}`}>
