@@ -115,6 +115,24 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   padding: 4px 8px;
   font-size: 12px;
 }
+.room-button {
+  width: 100%;
+  border: 1px solid #e8c7ad;
+  background: linear-gradient(135deg, #fff8e2, #fff1e7);
+  border-radius: 16px;
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  margin-top: 12px;
+  box-shadow: 0 8px 18px #8f4f2410;
+}
+.room-button:hover { transform: translateY(-1px); }
+.room-button span:nth-child(2) { display: grid; gap: 2px; flex: 1; }
+.room-button small { color: var(--muted); }
+.room-button b { color: var(--coral); font-size: 12px; }
+.pet-mini { font-size: 27px; line-height: 1; }
 .roster, .leaders { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .roster li, .leaders li { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .roster b, .leaders b { margin-left: auto; font-variant-numeric: tabular-nums; }
@@ -233,6 +251,36 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 .choices button.right { background: #e5f5df; }
 .choices button.wrong { background: #fde2d8; }
 .quiz { max-height: min(78dvh, 720px); overflow: auto; }
+.room-card { max-height: min(88dvh, 760px); overflow: auto; }
+.room-scene {
+  height: 190px;
+  border-radius: 16px;
+  margin: -4px -4px 18px;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(#bde8ef 0 58%, #f5d7a7 58%);
+  border: 1px solid #ffffff;
+  box-shadow: inset 0 -15px 0 #dcae77;
+}
+.room-scene::before, .room-scene::after { content: ""; position: absolute; bottom: 26px; width: 72px; height: 78px; border-radius: 50% 50% 12px 12px; background: #d98b5d; }
+.room-scene::before { left: 22px; }
+.room-scene::after { right: 22px; background: #e8ad68; }
+.room-window { position: absolute; top: 25px; left: 50%; transform: translateX(-50%); background: #fff2bf; color: #f0ae5d; border: 7px solid #d98b5d; border-radius: 12px; padding: 15px 10px; font-size: 12px; letter-spacing: 4px; }
+.room-cloud { position: absolute; right: 14px; top: 12px; font-size: 24px; opacity: .65; }
+.room-pet { position: absolute; z-index: 1; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 76px; filter: drop-shadow(0 6px 1px #7e4c3438); }
+.room-rug { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); width: 140px; height: 38px; border-radius: 50%; background: #e98c70; opacity: .8; }
+.pet-stats { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0; }
+.pet-stats span { flex: 1; min-width: 100px; background: #f7eee8; border-radius: 10px; padding: 9px; font-size: 12px; color: var(--muted); }
+.pet-stats b { display: block; color: var(--ink); margin-top: 3px; }
+.status-healthy { color: #31865b !important; }
+.status-sick { color: #b37525 !important; }
+.status-dead { color: #a34a4a !important; }
+.pet-shop { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; background: #fff4ca; border: 1px solid #f2d979; }
+.pet-shop div { flex: 1; display: grid; gap: 3px; }
+.pet-shop small { color: var(--muted); font-size: 12px; }
+.feed-button { width: auto !important; margin: 0 !important; min-height: 48px; white-space: nowrap; }
+.feed-button b { color: var(--yellow); }
+.pet-note { color: #9a5424; background: #fff0dc; border-radius: 10px; padding: 9px 10px; }
 
 .nameplate {
   display: flex;

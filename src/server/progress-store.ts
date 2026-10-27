@@ -38,6 +38,8 @@ export async function gradeAndPersist(input: {
   return db.transaction(async (tx) => {
     const rows = await tx.select().from(islandProgress).where(eq(islandProgress.id, 1)).limit(1);
     const current = rows[0] ? rowToProgress(input.questions, rows[0]) : emptyProgress();
+    const clientPets = mergeProgress(stationOrder(input.questions), [emptyProgress(), input.clientProgress]).pets;
+    current.pets = mergeProgress(stationOrder(input.questions), [current, { ...emptyProgress(), pets: clientPets }]).pets;
     const graded = gradeAttempt({ ...input, progress: current });
     if (!graded.correct) return { ...graded, persisted: true };
     const next = graded.progress;
@@ -48,6 +50,7 @@ export async function gradeAndPersist(input: {
         solved: next.solved,
         scores: next.scores,
         names: next.names,
+        pets: next.pets,
       })
       .onConflictDoUpdate({
         target: islandProgress.id,
@@ -55,6 +58,7 @@ export async function gradeAndPersist(input: {
           solved: next.solved,
           scores: next.scores,
           names: next.names,
+          pets: next.pets,
           updatedAt: new Date(),
         },
       });

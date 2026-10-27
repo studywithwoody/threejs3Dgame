@@ -10,7 +10,7 @@ export function clampClientProgress(progress: IslandProgress): IslandProgress {
   for (const [id, points] of Object.entries(progress.scores)) {
     scores[id] = Math.min(Math.max(0, points), cap);
   }
-  return { ...progress, scores };
+  return { ...progress, scores, pets: progress.pets ?? {} };
 }
 
 export type GradeReason = "wrong" | "locked" | "solved" | "unknown";

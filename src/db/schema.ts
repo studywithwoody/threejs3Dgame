@@ -1,6 +1,7 @@
 export * from "./auth-schema";
 
 import { integer, jsonb, pgTable, timestamp } from "drizzle-orm/pg-core";
+import type { PetState } from "@/game/types";
 
 /** Shared classroom progress. Only server routes read and write this row. */
 export const islandProgress = pgTable("island_progress", {
@@ -8,5 +9,6 @@ export const islandProgress = pgTable("island_progress", {
   solved: jsonb("solved").$type<string[]>().notNull(),
   scores: jsonb("scores").$type<Record<string, number>>().notNull(),
   names: jsonb("names").$type<Record<string, string>>().notNull(),
+  pets: jsonb("pets").$type<Record<string, PetState>>().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
