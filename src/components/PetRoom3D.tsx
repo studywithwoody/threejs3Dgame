@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import CameraControls, { type CameraAdjustment } from "@/components/CameraControls";
 import type { PetState } from "@/game/types";
 
 type Props = {
@@ -226,7 +227,7 @@ export default function PetRoom3D({ pet, onInteract }: Props) {
     };
   }, [pet?.species, pet?.status]);
 
-  const adjustCamera = (change: Partial<CameraControls>) => {
+  const adjustCamera = (change: CameraAdjustment) => {
     const controls = cameraControlsRef.current;
     cameraControlsRef.current = {
       yaw: controls.yaw + (change.yaw ?? 0),
@@ -241,20 +242,7 @@ export default function PetRoom3D({ pet, onInteract }: Props) {
 
   return (
     <div className={`pet-room-3d status-${pet?.status ?? "healthy"}`} ref={mountRef}>
-      <div className="pet-camera-controls" aria-label="寵物房間視角控制">
-        <button type="button" aria-label="視角向上" onClick={() => adjustCamera({ pitch: 0.16 })}>▲</button>
-        <div className="pet-camera-row">
-          <button type="button" aria-label="視角向左" onClick={() => adjustCamera({ yaw: -0.24 })}>◀</button>
-          <button type="button" className="pet-camera-reset" aria-label="重設視角" onClick={resetCamera}>●</button>
-          <button type="button" aria-label="視角向右" onClick={() => adjustCamera({ yaw: 0.24 })}>▶</button>
-        </div>
-        <button type="button" aria-label="視角向下" onClick={() => adjustCamera({ pitch: -0.16 })}>▼</button>
-        <div className="pet-zoom-controls" aria-label="寵物房間縮放">
-          <button type="button" aria-label="放大" onClick={() => adjustCamera({ distance: -0.8 })}>＋</button>
-          <span aria-hidden="true">縮放</span>
-          <button type="button" aria-label="縮小" onClick={() => adjustCamera({ distance: 0.8 })}>－</button>
-        </div>
-      </div>
+      <CameraControls onAdjust={adjustCamera} onReset={resetCamera} label="寵物房間視角控制" />
       <span className="pet-expression" aria-hidden="true">
         {pet?.status === "dead" ? "🪦" : pet?.status === "sick" ? "🤒" : "😊"}
       </span>

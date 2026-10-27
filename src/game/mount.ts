@@ -5,6 +5,7 @@ import { stationOrderRef, uiBridge } from "@/game/bridge";
 import { buildIsland } from "@/game/island";
 import { PLACES, SPAWN, groundY, isWalkable } from "@/game/terrain";
 import type { IslandProgress, Pose, Profile } from "@/game/types";
+import type { CameraAdjustment } from "@/components/CameraControls";
 
 const POSE_MS = 200;
 
@@ -16,6 +17,8 @@ export type GameApi = {
   upsertRemote: (player: Profile & Pose) => void;
   removeRemote: (id: string) => void;
   nearby: () => string | null;
+  adjustCamera: (change: CameraAdjustment) => void;
+  resetCamera: () => void;
   dispose: () => void;
 };
 
@@ -57,6 +60,7 @@ export function mountIsland(host: HTMLElement): GameApi {
   let z = SPAWN.z;
   let ry = 0;
   let cameraYaw = 0;
+  let cameraPitch = 0.4;
   let distance = 12;
   let nearbyId: string | null = null;
   let solved = new Set<string>();
@@ -157,10 +161,16 @@ export function mountIsland(host: HTMLElement): GameApi {
       const bob = Math.sin(time * (moved ? 9 : 2)) * (moved ? 0.05 : 0.015);
       local.group.position.set(x, gy + bob, z);
       local.group.rotation.y = ry;
-      desired.set(x - Math.sin(cameraYaw) * distance, gy + 6.2, z - Math.cos(cameraYaw) * distance);
-      if (desired.y < 1.4) desired.y = 1.4;
+      const cameraTargetY = gy + 1.35;
+      const horizontalDistance = Math.cos(cameraPitch) * distance;
+      desired.set(
+        x - Math.sin(cameraYaw) * horizontalDistance,
+        cameraTargetY + Math.sin(cameraPitch) * distance,
+        z - Math.cos(cameraYaw) * horizontalDistance,
+      );
+      if (desired.y < cameraTargetY + 0.25) desired.y = cameraTargetY + 0.25;
       camera.position.lerp(desired, 1 - Math.exp(-dt * 4.5));
-      camera.lookAt(x, gy + 1.35, z);
+      camera.lookAt(x, cameraTargetY, z);
 
       let closest: string | null = null;
       let closestD = 2.35;
@@ -213,6 +223,8 @@ export function mountIsland(host: HTMLElement): GameApi {
       z = SPAWN.z;
       ry = 0;
       cameraYaw = 0;
+      cameraPitch = 0.4;
+      distance = 12;
       if (!local) {
         local = makeAvatar(next);
         scene.add(local.group);
@@ -286,6 +298,16 @@ export function mountIsland(host: HTMLElement): GameApi {
       remotes.delete(id);
     },
     nearby: () => nearbyId,
+    adjustCamera(change) {
+      cameraYaw += change.yaw ?? 0;
+      cameraPitch = THREE.MathUtils.clamp(cameraPitch + (change.pitch ?? 0), 0.12, 0.95);
+      distance = THREE.MathUtils.clamp(distance + (change.distance ?? 0), 7, 18);
+    },
+    resetCamera() {
+      cameraYaw = 0;
+      cameraPitch = 0.4;
+      distance = 12;
+    },
     dispose() {
       running = false;
       cancelAnimationFrame(frame);

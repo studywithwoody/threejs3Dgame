@@ -196,7 +196,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   .brand p { display: none; }
   .progress-pill { left: 28px; transform: none; }
   .pet-room-3d { height: 230px; }
-  .pet-camera-controls button { min-width: 34px; min-height: 34px; }
+  .camera-controls button { min-width: 34px; min-height: 34px; }
+  .island-camera-controls { top: auto; bottom: 142px; left: 12px; }
 }
 
 .gate {
@@ -276,7 +277,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 }
 .pet-room-3d.status-sick { filter: saturate(.82); }
 .pet-room-3d.status-dead { filter: grayscale(.45); }
-.pet-camera-controls {
+.camera-controls {
   position: absolute;
   z-index: 3;
   top: 10px;
@@ -290,7 +291,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   box-shadow: 0 2px 8px #4a2a1422;
   touch-action: manipulation;
 }
-.pet-camera-controls button {
+.camera-controls button {
   width: 30px;
   height: 28px;
   padding: 0;
@@ -302,10 +303,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   line-height: 1;
   cursor: pointer;
 }
-.pet-camera-controls button:active { transform: translateY(1px); }
-.pet-camera-row { display: flex; gap: 3px; }
-.pet-camera-reset { color: var(--muted) !important; font-size: 9px !important; }
-.pet-zoom-controls {
+.camera-controls button:active { transform: translateY(1px); }
+.camera-controls-row { display: flex; gap: 3px; }
+.camera-controls-reset { color: var(--muted) !important; font-size: 9px !important; }
+.camera-zoom-controls {
   display: flex;
   align-items: center;
   gap: 3px;
@@ -313,8 +314,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   padding-top: 4px;
   border-top: 1px solid #211d1d20;
 }
-.pet-zoom-controls button { width: 28px; height: 26px; font-size: 17px; }
-.pet-zoom-controls span { font-size: 10px; color: var(--muted); writing-mode: vertical-rl; }
+.camera-zoom-controls button { width: 28px; height: 26px; font-size: 17px; }
+.camera-zoom-controls span { font-size: 10px; color: var(--muted); writing-mode: vertical-rl; }
+.island-camera-controls { top: 116px; left: 28px; }
 .pet-expression {
   position: absolute;
   z-index: 2;

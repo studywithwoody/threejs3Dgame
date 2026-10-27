@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import IslandStage from "@/components/IslandStage";
+import CameraControls from "@/components/CameraControls";
 import PetRoom3D from "@/components/PetRoom3D";
 import { authClient } from "@/lib/auth-client";
 import { AVATAR_COLORS, cleanNickname, colorFromId, displayName } from "@/lib/profile";
@@ -458,6 +459,12 @@ export function Shell() {
   return (
     <main className="app">
       <IslandStage api={apiRef} />
+      <CameraControls
+        className="island-camera-controls"
+        label="島嶼探索視角控制"
+        onAdjust={(change) => apiRef.current?.adjustCamera(change)}
+        onReset={() => apiRef.current?.resetCamera()}
+      />
       <div className="vignette" />
       {status?.authConfigured ? <SessionWatch onSession={onSession} /> : null}
 
