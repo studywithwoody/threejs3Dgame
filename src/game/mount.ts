@@ -86,17 +86,23 @@ export function mountIsland(host: HTMLElement): GameApi {
   let selectedEditorObject: THREE.Object3D | null = null;
   let selectedEditorId: string | null = null;
   let editorSaveTimer: number | null = null;
+  const editorHudInfo = document.createElement("div");
+  const editorSaveButton = document.createElement("button");
+  editorSaveButton.type = "button";
+  editorSaveButton.textContent = "儲存調整";
+  editorHud.append(editorHudInfo, editorSaveButton);
 
   const updateEditorHud = () => {
     if (!editorEnabled) return;
+    editorSaveButton.disabled = !selectedEditorObject || !selectedEditorId;
     if (!selectedEditorObject || !selectedEditorId) {
-      editorHud.textContent = "場景編輯器 · 點擊素材以選取";
+      editorHudInfo.textContent = "場景編輯器 · 點擊素材以選取";
       return;
     }
     const p = selectedEditorObject.position;
     const r = selectedEditorObject.rotation;
     const s = selectedEditorObject.scale;
-    editorHud.textContent = `場景編輯器 · ${selectedEditorId}\n位置 (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})\n旋轉 (${r.x.toFixed(2)}, ${r.y.toFixed(2)}, ${r.z.toFixed(2)}) · 縮放 (${s.x.toFixed(2)}, ${s.y.toFixed(2)}, ${s.z.toFixed(2)})\nWASD 位移 · E 旋轉 · R 縮放 · Shift 加速 · F2 關閉`;
+    editorHudInfo.textContent = `場景編輯器 · ${selectedEditorId}\n位置 (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})\n旋轉 (${r.x.toFixed(2)}, ${r.y.toFixed(2)}, ${r.z.toFixed(2)}) · 縮放 (${s.x.toFixed(2)}, ${s.y.toFixed(2)}, ${s.z.toFixed(2)})\nWASD 位移 · ↑/Q 上移 · ↓/Z 下移 · E 旋轉 · R 縮放 · Shift 加速`;
   };
 
   const refreshEditorBounds = () => {
@@ -106,34 +112,48 @@ export function mountIsland(host: HTMLElement): GameApi {
     updateEditorHud();
   };
 
+  const saveEditorObject = async () => {
+    if (!selectedEditorObject || !selectedEditorId) return;
+    if (editorSaveTimer !== null) {
+      window.clearTimeout(editorSaveTimer);
+      editorSaveTimer = null;
+    }
+    const object = selectedEditorObject;
+    const id = selectedEditorId;
+    await fetch("/api/scene-editor", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id,
+        position: object.position.toArray(),
+        rotation: [object.rotation.x, object.rotation.y, object.rotation.z],
+        scale: object.scale.toArray(),
+      }),
+    }).catch(() => {
+      // Keep the editor usable if the local save endpoint is unavailable.
+    });
+  };
+
   const queueEditorSave = () => {
     if (!selectedEditorObject || !selectedEditorId) return;
     if (editorSaveTimer !== null) window.clearTimeout(editorSaveTimer);
     editorSaveTimer = window.setTimeout(() => {
       editorSaveTimer = null;
-      const object = selectedEditorObject;
-      const id = selectedEditorId;
-      if (!object || !id) return;
-      void fetch("/api/scene-editor", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id,
-          position: object.position.toArray(),
-          rotation: [object.rotation.x, object.rotation.y, object.rotation.z],
-          scale: object.scale.toArray(),
-        }),
-      }).catch(() => {
-        // Keep the editor usable if the local save endpoint is unavailable.
-      });
+      void saveEditorObject();
     }, 250);
   };
 
-  const nudgeEditorObject = (x: number, z: number, accelerated = false) => {
+  const onEditorSave = () => {
+    void saveEditorObject();
+  };
+  editorSaveButton.addEventListener("click", onEditorSave);
+
+  const nudgeEditorObject = (x: number, y: number, z: number, accelerated = false) => {
     if (!selectedEditorObject) return;
     const step = 0.25 * (accelerated ? 4 : 1);
     transformControls.setMode("translate");
     selectedEditorObject.position.x += x * step;
+    selectedEditorObject.position.y += y * step;
     selectedEditorObject.position.z += z * step;
     refreshEditorBounds();
     queueEditorSave();
@@ -244,14 +264,16 @@ export function mountIsland(host: HTMLElement): GameApi {
     }
     if (editorEnabled) {
       const key = event.key.toLowerCase();
-      if (key === "w") nudgeEditorObject(0, -1, event.shiftKey);
-      if (key === "a") nudgeEditorObject(-1, 0, event.shiftKey);
-      if (key === "s") nudgeEditorObject(0, 1, event.shiftKey);
-      if (key === "d") nudgeEditorObject(1, 0, event.shiftKey);
+      if (key === "w") nudgeEditorObject(0, 0, 1, event.shiftKey);
+      if (key === "a") nudgeEditorObject(1, 0, 0, event.shiftKey);
+      if (key === "s") nudgeEditorObject(0, 0, -1, event.shiftKey);
+      if (key === "d") nudgeEditorObject(-1, 0, 0, event.shiftKey);
+      if (key === "q" || key === "arrowup") nudgeEditorObject(0, 1, 0, event.shiftKey);
+      if (key === "z" || key === "arrowdown") nudgeEditorObject(0, -1, 0, event.shiftKey);
       if (key === "e") transformControls.setMode("rotate");
       if (key === "r") transformControls.setMode("scale");
       if (event.key === "Escape") selectEditorObject(null, null);
-      if (["w", "a", "s", "d", "e", "r", "Escape"].includes(key)) event.preventDefault();
+      if (["w", "a", "s", "d", "q", "z", "arrowup", "arrowdown", "e", "r", "escape"].includes(key)) event.preventDefault();
       return;
     }
     keys.add(event.key.toLowerCase());
@@ -517,6 +539,7 @@ export function mountIsland(host: HTMLElement): GameApi {
       orbitControls.dispose();
       transformControls.removeEventListener("change", onTransformChange);
       transformControls.removeEventListener("dragging-changed", onTransformDragging);
+      editorSaveButton.removeEventListener("click", onEditorSave);
       transformControls.dispose();
       canvas.removeEventListener("click", onEditorClick);
       observer.disconnect();
