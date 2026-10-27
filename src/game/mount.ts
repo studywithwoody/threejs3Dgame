@@ -213,7 +213,7 @@ export function mountIsland(host: HTMLElement): GameApi {
         z - Math.cos(cameraYaw) * horizontalDistance,
       );
       if (desired.y < cameraTargetY + 0.25) desired.y = cameraTargetY + 0.25;
-      camera.position.lerp(desired, 1 - Math.exp(-dt * 4.5));
+      camera.position.lerp(desired, 1 - Math.exp(-dt * 8));
       camera.lookAt(x, cameraTargetY, z);
 
       nearbyId = null;
@@ -262,6 +262,14 @@ export function mountIsland(host: HTMLElement): GameApi {
       cameraYaw = 0;
       cameraPitch = 0.4;
       distance = 12;
+      orbitControls.enabled = false;
+      const followHorizontalDistance = Math.cos(cameraPitch) * distance;
+      camera.position.set(
+        x - Math.sin(cameraYaw) * followHorizontalDistance,
+        playerY + 1.35 + Math.sin(cameraPitch) * distance,
+        z - Math.cos(cameraYaw) * followHorizontalDistance,
+      );
+      camera.lookAt(x, playerY + 1.35, z);
       if (!local) {
         local = makeAvatar(next);
         scene.add(local.group);
