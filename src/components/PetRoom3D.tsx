@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { PetState } from "@/game/types";
@@ -16,17 +16,14 @@ const MODEL_PATHS: Record<PetState["species"], string> = {
   dog: "/pets/dog.glb",
 };
 
-const CAMERA_VIEWS = [
-  { label: "正面", position: new THREE.Vector3(0, 2.25, 8.2), target: new THREE.Vector3(0, 1.25, 0) },
-  { label: "側面", position: new THREE.Vector3(6.4, 2.35, 5.1), target: new THREE.Vector3(0, 1.2, 0) },
-  { label: "俯視", position: new THREE.Vector3(0, 6.8, 5.8), target: new THREE.Vector3(0, 0.65, 0) },
-];
+const CAMERA_TARGET = new THREE.Vector3(0, 1.1, 0);
+const CAMERA_DEFAULT = { yaw: 0, pitch: 0.14, distance: 8.2 };
+type CameraControls = typeof CAMERA_DEFAULT;
 
 export default function PetRoom3D({ pet, onInteract }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const interactRef = useRef(onInteract);
-  const cameraViewRef = useRef(0);
-  const [cameraView, setCameraView] = useState(0);
+  const cameraControlsRef = useRef<CameraControls>({ ...CAMERA_DEFAULT });
   interactRef.current = onInteract;
 
   useEffect(() => {
@@ -37,11 +34,19 @@ export default function PetRoom3D({ pet, onInteract }: Props) {
     scene.fog = new THREE.Fog("#bde8ef", 8, 22);
 
     const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100);
-    const cameraTarget = new THREE.Vector3();
-    const view = CAMERA_VIEWS[cameraViewRef.current];
-    camera.position.copy(view.position);
-    cameraTarget.copy(view.target);
-    camera.lookAt(view.target);
+    const cameraTarget = CAMERA_TARGET.clone();
+    const cameraPosition = new THREE.Vector3();
+    const getCameraPosition = () => {
+      const { yaw, pitch, distance } = cameraControlsRef.current;
+      const horizontal = Math.cos(pitch) * distance;
+      return cameraPosition.set(
+        Math.sin(yaw) * horizontal,
+        CAMERA_TARGET.y + Math.sin(pitch) * distance,
+        Math.cos(yaw) * horizontal,
+      );
+    };
+    camera.position.copy(getCameraPosition());
+    camera.lookAt(cameraTarget);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
@@ -179,9 +184,7 @@ export default function PetRoom3D({ pet, onInteract }: Props) {
       frame = requestAnimationFrame(animate);
       const delta = Math.min(clock.getDelta(), 0.05);
       const elapsed = clock.elapsedTime;
-      const nextView = CAMERA_VIEWS[cameraViewRef.current];
-      camera.position.lerp(nextView.position, Math.min(delta * 5, 1));
-      cameraTarget.lerp(nextView.target, Math.min(delta * 5, 1));
+      camera.position.lerp(getCameraPosition(), Math.min(delta * 7, 1));
       camera.lookAt(cameraTarget);
       mixer.update(delta);
       if (pet?.status === "healthy" && group.visible) {
@@ -223,26 +226,39 @@ export default function PetRoom3D({ pet, onInteract }: Props) {
     };
   }, [pet?.species, pet?.status]);
 
-  const rotateCamera = () => {
-    const nextView = (cameraView + 1) % CAMERA_VIEWS.length;
-    cameraViewRef.current = nextView;
-    setCameraView(nextView);
+  const adjustCamera = (change: Partial<CameraControls>) => {
+    const controls = cameraControlsRef.current;
+    cameraControlsRef.current = {
+      yaw: controls.yaw + (change.yaw ?? 0),
+      pitch: THREE.MathUtils.clamp(controls.pitch + (change.pitch ?? 0), -0.18, 1.05),
+      distance: THREE.MathUtils.clamp(controls.distance + (change.distance ?? 0), 5.4, 11),
+    };
+  };
+
+  const resetCamera = () => {
+    cameraControlsRef.current = { ...CAMERA_DEFAULT };
   };
 
   return (
     <div className={`pet-room-3d status-${pet?.status ?? "healthy"}`} ref={mountRef}>
-      <button
-        className="pet-camera-button"
-        type="button"
-        aria-label={`切換寵物房間視角，目前為${CAMERA_VIEWS[cameraView].label}視角`}
-        onClick={rotateCamera}
-      >
-        ↻ {CAMERA_VIEWS[cameraView].label}視角
-      </button>
+      <div className="pet-camera-controls" aria-label="寵物房間視角控制">
+        <button type="button" aria-label="視角向上" onClick={() => adjustCamera({ pitch: 0.16 })}>▲</button>
+        <div className="pet-camera-row">
+          <button type="button" aria-label="視角向左" onClick={() => adjustCamera({ yaw: -0.24 })}>◀</button>
+          <button type="button" className="pet-camera-reset" aria-label="重設視角" onClick={resetCamera}>●</button>
+          <button type="button" aria-label="視角向右" onClick={() => adjustCamera({ yaw: 0.24 })}>▶</button>
+        </div>
+        <button type="button" aria-label="視角向下" onClick={() => adjustCamera({ pitch: -0.16 })}>▼</button>
+        <div className="pet-zoom-controls" aria-label="寵物房間縮放">
+          <button type="button" aria-label="放大" onClick={() => adjustCamera({ distance: -0.8 })}>＋</button>
+          <span aria-hidden="true">縮放</span>
+          <button type="button" aria-label="縮小" onClick={() => adjustCamera({ distance: 0.8 })}>－</button>
+        </div>
+      </div>
       <span className="pet-expression" aria-hidden="true">
         {pet?.status === "dead" ? "🪦" : pet?.status === "sick" ? "🤒" : "😊"}
       </span>
-      <span className="pet-3d-hint">點一下寵物和牠互動</span>
+      <span className="pet-3d-hint">方向鍵調整視角，＋／－縮放</span>
     </div>
   );
 }
