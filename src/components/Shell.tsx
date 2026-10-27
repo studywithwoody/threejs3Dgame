@@ -129,8 +129,27 @@ export function Shell() {
   useEffect(() => {
     uiBridge.onNearby = () => {};
     uiBridge.onInteract = () => {};
+    uiBridge.onCoinCollected = () => {
+      const player = meRef.current;
+      if (!player) return;
+      setProgress((previous) => {
+        const next = {
+          ...previous,
+          scores: { ...previous.scores, [player.id]: (previous.scores[player.id] ?? 0) + 10 },
+          names: { ...previous.names, [player.id]: player.name },
+        };
+        progressRef.current = next;
+        saveProgress(next);
+        netRef.current?.sendProgress(next);
+        return next;
+      });
+      addNotification("金幣 +10 分");
+    };
     uiBridge.onPose = (pose) => netRef.current?.sendPose(pose);
-  });
+    return () => {
+      uiBridge.onCoinCollected = () => {};
+    };
+  }, [addNotification]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(GUEST_KEY);
@@ -690,7 +709,7 @@ export function Shell() {
         </div>
       ) : null}
 
-      <p className="hint">WASD 移動 · 拖曳旋轉鏡頭 · Shift 奔跑</p>
+      <p className="hint">WASD 移動 · Space 跳躍 · 拖曳旋轉鏡頭 · Shift 奔跑 · 收集金幣 +10 分</p>
     </main>
   );
 

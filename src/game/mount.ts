@@ -62,6 +62,8 @@ export function mountIsland(host: HTMLElement): GameApi {
   let cameraYaw = 0;
   let cameraPitch = 0.4;
   let distance = 12;
+  let jumpHeight = 0;
+  let jumpVelocity = 0;
   let nearbyId: string | null = null;
   let solved = new Set<string>();
   let lastPoseAt = 0;
@@ -87,6 +89,7 @@ export function mountIsland(host: HTMLElement): GameApi {
     if (uiBridge.typing) return;
     keys.add(event.key.toLowerCase());
     if (event.key === " " || event.key.startsWith("Arrow")) event.preventDefault();
+    if (event.key === " " && playing && !uiBridge.typing && jumpHeight <= 0.01) jumpVelocity = 8.5;
     if (event.key.toLowerCase() === "e") uiBridge.onInteract();
   };
   const onKeyUp = (event: KeyboardEvent) => {
@@ -157,12 +160,16 @@ export function mountIsland(host: HTMLElement): GameApi {
         ry = Math.atan2(dx, dz);
         moved = true;
       }
+      jumpVelocity -= 24 * dt;
+      jumpHeight = Math.max(0, jumpHeight + jumpVelocity * dt);
+      if (jumpHeight === 0) jumpVelocity = 0;
+      if (world.tryCollectCoin(x, z)) uiBridge.onCoinCollected();
       const gy = groundY(x, z);
       const bob = Math.sin(time * (moved ? 9 : 2)) * (moved ? 0.05 : 0.015);
-      local.group.position.set(x, gy + bob, z);
+      local.group.position.set(x, gy + bob + jumpHeight, z);
       local.group.rotation.y = ry;
       local.update(dt);
-      const cameraTargetY = gy + 1.35;
+      const cameraTargetY = gy + 1.35 + jumpHeight * 0.35;
       const horizontalDistance = Math.cos(cameraPitch) * distance;
       desired.set(
         x - Math.sin(cameraYaw) * horizontalDistance,
@@ -213,6 +220,8 @@ export function mountIsland(host: HTMLElement): GameApi {
       x = SPAWN.x;
       z = SPAWN.z;
       ry = 0;
+      jumpHeight = 0;
+      jumpVelocity = 0;
       cameraYaw = 0;
       cameraPitch = 0.4;
       distance = 12;

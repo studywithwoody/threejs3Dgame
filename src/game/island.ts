@@ -21,6 +21,7 @@ function std(color: string, extra: Partial<THREE.MeshStandardMaterialParameters>
 
 export type IslandWorld = {
   update: (time: number, solved: ReadonlySet<string>) => void;
+  tryCollectCoin: (x: number, z: number) => boolean;
   dispose: () => void;
 };
 
@@ -195,6 +196,9 @@ export function buildIsland(scene: THREE.Scene): IslandWorld {
       }
       course.update(time);
     },
+    tryCollectCoin(x, z) {
+      return course.tryCollectCoin(x, z);
+    },
     dispose() {
       for (const item of disposables) item.dispose();
     },
@@ -230,9 +234,9 @@ function buildPlatformerCourse(scene: THREE.Scene, keep: <T extends { dispose: (
   addPlatform(-5, 8, groundY(-5, 8) + 1.2, 0.75, blueMat);
 
   const kitPath = (name: string) => `/assets/platformer-kit/Models/GLB%20format/${name}.glb`;
-  const kitCoins: THREE.Object3D[] = [];
+  const kitCoins: Array<THREE.Object3D | null> = [];
   const kitFlags: THREE.Object3D[] = [];
-  const addKitModel = (name: string, position: THREE.Vector3, scale: number, target: THREE.Object3D[] = []) => {
+  const addKitModel = (name: string, position: THREE.Vector3, scale: number, target: Array<THREE.Object3D | null> = [], index = -1) => {
     const path = kitPath(name);
     let request = kitCache.get(path);
     if (!request) {
@@ -248,7 +252,8 @@ function buildPlatformerCourse(scene: THREE.Scene, keep: <T extends { dispose: (
         child.receiveShadow = true;
       });
       scene.add(model);
-      target.push(model);
+      if (index >= 0) target[index] = model;
+      else target.push(model);
     }).catch(() => {
       // The geometric course remains available if an optional kit model fails to load.
     });
@@ -267,19 +272,22 @@ function buildPlatformerCourse(scene: THREE.Scene, keep: <T extends { dispose: (
   addKitModel("tree-pine-small", new THREE.Vector3(-16, groundY(-16, 2), 2), 2.4);
   addKitModel("tree-pine-small", new THREE.Vector3(15, groundY(15, -6), -6), 2.1);
   addKitModel("flowers", new THREE.Vector3(-10, groundY(-10, 7) + 0.1, 7), 1.4);
-  for (const [x, y, z] of [[-5.5, 5.1, -5.5], [3.5, 6.2, -1], [9, 7.1, 4], [4, 6.2, 10], [-5, 5.4, 8]] as const) {
-    addKitModel("coin-gold", new THREE.Vector3(x, y, z), 1.1, kitCoins);
+  const coinPositions = [[-5.5, 5.1, -5.5], [3.5, 6.2, -1], [9, 7.1, 4], [4, 6.2, 10], [-5, 5.4, 8]] as const;
+  for (const [index, [x, y, z]] of coinPositions.entries()) {
+    addKitModel("coin-gold", new THREE.Vector3(x, y, z), 1.1, kitCoins, index);
   }
 
   const coinGeo = keep(new THREE.TorusGeometry(0.34, 0.11, 8, 16));
   const coins: THREE.Mesh[] = [];
-  for (const [x, y, z] of [[-5.5, 5.1, -5.5], [3.5, 6.2, -1], [9, 7.1, 4], [4, 6.2, 10], [-5, 5.4, 8]] as const) {
+  const coinSpots: Array<{ x: number; z: number; primitive: THREE.Mesh; collected: boolean }> = [];
+  for (const [x, y, z] of coinPositions) {
     const coin = new THREE.Mesh(coinGeo, goldMat);
     coin.position.set(x, y, z);
     coin.rotation.x = Math.PI / 2;
     coin.castShadow = true;
     scene.add(coin);
     coins.push(coin);
+    coinSpots.push({ x, z, primitive: coin, collected: false });
   }
 
   const flagPoleGeo = keep(new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8));
@@ -301,11 +309,21 @@ function buildPlatformerCourse(scene: THREE.Scene, keep: <T extends { dispose: (
         coins[i].position.y += Math.sin(time * 2.5 + i) * 0.002;
       }
       for (const coin of kitCoins) {
-        coin.rotation.y = time * 2.4;
-        coin.position.y += Math.sin(time * 2.5) * 0.002;
+        if (coin) coin.rotation.y = time * 2.4;
       }
       flag.rotation.y = Math.sin(time * 2) * 0.12;
       for (const kitFlag of kitFlags) kitFlag.rotation.y = Math.sin(time * 2) * 0.12;
+    },
+    tryCollectCoin(x: number, z: number) {
+      for (let index = 0; index < coinSpots.length; index += 1) {
+        const coin = coinSpots[index];
+        if (coin.collected || Math.hypot(coin.x - x, coin.z - z) > 1.35) continue;
+        coin.collected = true;
+        coin.primitive.visible = false;
+        kitCoins[index]?.traverse((child) => { child.visible = false; });
+        return true;
+      }
+      return false;
     },
   };
 }

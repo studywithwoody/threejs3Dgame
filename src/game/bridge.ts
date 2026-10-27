@@ -7,5 +7,6 @@ export const uiBridge = {
   typing: false,
   onNearby: (_id: string | null) => {},
   onPose: (_pose: Pose) => {},
+  onCoinCollected: () => {},
   onInteract: () => {},
 };
