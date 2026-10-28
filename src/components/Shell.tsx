@@ -464,10 +464,21 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
       <div className="vignette" />
       {status?.authConfigured ? <SessionWatch onSession={onSession} /> : null}
 
-      <header className="brand">
-        <p className="eyebrow">DAWN ISLE</p>
-        <h1>曙島</h1>
-        <p>五座物理站，全班一起點亮。</p>
+      <header className="site-header">
+        <div className="brand">
+          <p className="eyebrow">DAWN ISLE</p>
+          <h1>曙島</h1>
+          <p>五座物理站，全班一起點亮。</p>
+        </div>
+        {me ? (
+          <button
+            className="header-action"
+            type="button"
+            onClick={() => (status?.authConfigured ? void authClient.signOut() : leaveGame())}
+          >
+            {status?.authConfigured ? "登出" : "離開島嶼"}
+          </button>
+        ) : null}
       </header>
 
       <section className={`progress-pill info-card ${collapsedInfo.progress ? "is-collapsed" : ""}`} aria-label="島的進度">
@@ -524,15 +535,6 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
                 </ol>
               </>
             ) : null}
-            {status?.authConfigured ? (
-              <button className="texty" type="button" onClick={() => void authClient.signOut()}>
-                登出
-              </button>
-            ) : (
-              <button className="texty" type="button" onClick={leaveGame}>
-                離開島嶼
-              </button>
-            )}
           </div>
         </aside>
       ) : null}
