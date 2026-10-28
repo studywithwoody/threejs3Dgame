@@ -219,21 +219,21 @@ export default function RoomPage() {
               setNotice(pet.status === "sick" ? `${pet.name} 看起來需要休息。` : `${pet.name} 開心地跳起來！`);
             }}
           />
+          <aside className="room-page-panel">
+            <div className="room-panel-intro">
+              <span className="pet-mini">{petEmoji(selectedPet)}</span>
+              <div><p className="eyebrow">ROOM CARE</p><h2>{selectedPet?.name ?? "還沒有寵物"}</h2></div>
+            </div>
+            <p>{petStatusText(selectedPet, pets.length, eggs.length)}</p>
+            {selectedPet ? <div className="pet-stats"><span>狀態 <b className={`status-${selectedPet.status}`}>{petStatusLabel(selectedPet.status)}</b></span><span>照顧 {selectedPet.feedings} 次</span></div> : null}
+            <div className="pet-shop"><div><strong>寵物店</strong><small>用答題分數照顧小夥伴</small></div>{selectedPet ? <button className="primary feed-button" type="button" onClick={feed} disabled={selectedPet.status === "dead" || score < 5}>🥕 餵食 <b>5 分</b></button> : null}<button className="primary feed-button" type="button" onClick={buy} disabled={score < EGG_COST}>🥚 買蛋 <b>{EGG_COST} 分</b></button></div>
+            <div className="room-editor-toolbar"><div><strong>房間佈置</strong><small>{editing ? "點擊家具後使用箭頭控制器拖曳、旋轉或縮放" : "購買家具後，開啟編輯模式開始佈置"}</small></div><button className={editing ? "primary" : "secondary"} type="button" onClick={() => setEditing((value) => !value)}>{editing ? "完成佈置" : "進入編輯"}</button>{editing && selectedFurnitureId ? <button className="texty danger-button" type="button" onClick={removeFurniture}>刪除選取</button> : null}</div>
+            {editing ? <div className="furniture-shop"><div className="furniture-shop-heading"><strong>家具商店</strong><small>分數：{score} · 已擁有可擺放家具</small></div><div className="furniture-grid">{FURNITURE_CATALOG.map((item) => { const owned = ownedFurniture[item.id] ?? 0; const placed = furniture.filter((entry) => entry.assetId === item.id).length; return <article className="furniture-item" key={item.id}><span className="furniture-icon">{item.icon}</span><div><strong>{item.name}</strong><small>{item.price} 分 · {placed}/{owned} 已擺放</small></div><button className="secondary" type="button" onClick={() => buyFurniture(item.id)} disabled={score < item.price}>購買</button><button className="texty" type="button" onClick={() => addFurniture(item.id)} disabled={placed >= owned}>放入房間</button></article>; })}</div></div> : null}
+            <button className="secondary pet-manage-button" type="button" onClick={() => setManagerOpen(true)}>🧺 管理寵物與蛋（{pets.length}/{MAX_PETS}）</button>
+            {notice ? <p className="pet-note">{notice}</p> : null}
+            <p className="note">點擊寵物可以和牠互動。一天沒餵會生病，兩天沒餵會離世。</p>
+          </aside>
         </div>
-        <aside className="room-page-panel">
-          <div className="room-panel-intro">
-            <span className="pet-mini">{petEmoji(selectedPet)}</span>
-            <div><p className="eyebrow">ROOM CARE</p><h2>{selectedPet?.name ?? "還沒有寵物"}</h2></div>
-          </div>
-          <p>{petStatusText(selectedPet, pets.length, eggs.length)}</p>
-          {selectedPet ? <div className="pet-stats"><span>狀態 <b className={`status-${selectedPet.status}`}>{petStatusLabel(selectedPet.status)}</b></span><span>照顧 {selectedPet.feedings} 次</span></div> : null}
-          <div className="pet-shop"><div><strong>寵物店</strong><small>用答題分數照顧小夥伴</small></div>{selectedPet ? <button className="primary feed-button" type="button" onClick={feed} disabled={selectedPet.status === "dead" || score < 5}>🥕 餵食 <b>5 分</b></button> : null}<button className="primary feed-button" type="button" onClick={buy} disabled={score < EGG_COST}>🥚 買蛋 <b>{EGG_COST} 分</b></button></div>
-          <div className="room-editor-toolbar"><div><strong>房間佈置</strong><small>{editing ? "點擊家具後使用箭頭控制器拖曳、旋轉或縮放" : "購買家具後，開啟編輯模式開始佈置"}</small></div><button className={editing ? "primary" : "secondary"} type="button" onClick={() => setEditing((value) => !value)}>{editing ? "完成佈置" : "進入編輯"}</button>{editing && selectedFurnitureId ? <button className="texty danger-button" type="button" onClick={removeFurniture}>刪除選取</button> : null}</div>
-          {editing ? <div className="furniture-shop"><div className="furniture-shop-heading"><strong>家具商店</strong><small>分數：{score} · 已擁有可擺放家具</small></div><div className="furniture-grid">{FURNITURE_CATALOG.map((item) => { const owned = ownedFurniture[item.id] ?? 0; const placed = furniture.filter((entry) => entry.assetId === item.id).length; return <article className="furniture-item" key={item.id}><span className="furniture-icon">{item.icon}</span><div><strong>{item.name}</strong><small>{item.price} 分 · {placed}/{owned} 已擺放</small></div><button className="secondary" type="button" onClick={() => buyFurniture(item.id)} disabled={score < item.price}>購買</button><button className="texty" type="button" onClick={() => addFurniture(item.id)} disabled={placed >= owned}>放入房間</button></article>; })}</div></div> : null}
-          <button className="secondary pet-manage-button" type="button" onClick={() => setManagerOpen(true)}>🧺 管理寵物與蛋（{pets.length}/{MAX_PETS}）</button>
-          {notice ? <p className="pet-note">{notice}</p> : null}
-          <p className="note">點擊寵物可以和牠互動。一天沒餵會生病，兩天沒餵會離世。</p>
-        </aside>
       </section>
       {managerOpen ? <div className="gate"><section className="card pet-manager-card" role="dialog" aria-labelledby="room-manager-title"><button className="room-close" type="button" onClick={() => setManagerOpen(false)} aria-label="關閉管理中心">×</button><p className="eyebrow">PET CARE · 管理中心</p><h2 id="room-manager-title">寵物與蛋</h2><p>選一隻寵物查看狀態，也可以孵化蛋或移除既有寵物。</p><div className="pet-manager-list">{pets.length ? pets.map((pet) => <article className={`pet-manager-item ${selectedPet?.id === pet.id ? "is-selected" : ""}`} key={pet.id}><button className="pet-select" type="button" onClick={() => { setSelectedPetId(pet.id); setManagerOpen(false); }}><span className="pet-manager-emoji">{petEmoji(pet)}</span><span><strong>{pet.name}</strong><small>{petSpeciesLabel(pet.species)} · {petStatusLabel(pet.status)}</small></span></button><button className="texty danger-button" type="button" onClick={() => discard(pet.id)}>移除</button></article>) : <p className="empty-pets">還沒有寵物，先買一顆蛋吧！</p>}</div><div className="egg-list"><h3>我的蛋</h3>{eggs.length ? eggs.map((egg) => <div className="egg-item" key={egg.id}><span>🥚 <small>神秘蛋</small></span><button className="primary" type="button" onClick={() => hatch(egg.id)} disabled={pets.length >= MAX_PETS}>孵化</button></div>) : <p className="empty-pets">還沒有蛋。</p>}</div></section></div> : null}
     </main>
