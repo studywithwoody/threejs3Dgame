@@ -228,7 +228,7 @@ function buildReferenceScene(scene: THREE.Scene, sceneObjects: SceneObjectRecord
     },
     update(time: number) {
       for (const config of records.values()) {
-        if (!config.collectible) continue;
+        if (!isCollectible(config)) continue;
         const model = instances.get(config.id);
         if (!model) continue;
         model.rotation.y = time * 2.4;
@@ -239,7 +239,7 @@ function buildReferenceScene(scene: THREE.Scene, sceneObjects: SceneObjectRecord
     },
     tryCollectCoin(x: number, z: number) {
       for (const config of records.values()) {
-        if (!config.collectible) continue;
+        if (!isCollectible(config)) continue;
         const model = instances.get(config.id);
         if (!model || !model.visible) continue;
         if (Math.hypot(model.position.x - x, model.position.z - z) > 1.5) continue;
@@ -271,6 +271,10 @@ function buildReferenceScene(scene: THREE.Scene, sceneObjects: SceneObjectRecord
       removeSceneObject(id);
     },
   };
+}
+
+function isCollectible(config: SceneObjectRecord) {
+  return config.collectible || config.assetId.startsWith("coin-");
 }
 
 function toSceneRecords(objects: SceneObject[]): SceneObjectRecord[] {

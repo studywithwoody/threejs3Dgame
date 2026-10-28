@@ -181,7 +181,7 @@ export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[]
       rotation: [0, 0, 0],
       scale: [1, 1, 1],
       visible: true,
-      collectible: asset.category === "collectible",
+      collectible: asset.category === "collectible" || asset.id.startsWith("coin-"),
       autoAnchor: false,
     };
     void world.addSceneObject(object).then(() => {
