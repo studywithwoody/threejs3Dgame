@@ -9,7 +9,7 @@ import CharacterPreview3D from "@/components/CharacterPreview3D";
 import { authClient } from "@/lib/auth-client";
 import { AVATAR_COLORS, cleanNickname, colorFromId, displayName } from "@/lib/profile";
 import { uiBridge } from "@/game/bridge";
-import { connectIsland, type IslandConnection, type NetMode } from "@/game/net";
+import { connectIsland, type IslandConnection } from "@/game/net";
 import type { GameApi } from "@/game/mount";
 import { setStick } from "@/game/mount";
 import { BLOCKY_MODELS } from "@/game/avatar";
@@ -88,7 +88,6 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
   const [me, setMe] = useState<Profile | null>(null);
   const [progress, setProgress] = useState<IslandProgress>(emptyProgress);
   const [roster, setRoster] = useState<Profile[]>([]);
-  const [mode, setMode] = useState<NetMode | null>(null);
   const [notifications, setNotifications] = useState<IslandNotification[]>([]);
   const [guestName, setGuestName] = useState("");
   const [guestColor, setGuestColor] = useState<string>(AVATAR_COLORS[0]);
@@ -254,7 +253,6 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
         return;
       }
       netRef.current = conn;
-      setMode(conn.mode);
       conn.sendProgress(current);
     },
     [status?.databaseConfigured],
@@ -427,7 +425,6 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
     void enterGame({ id, name, color: guestColor, avatarModel: guestAvatar, image: null });
   }
 
-  const score = me ? progress.scores[me.id] ?? 0 : 0;
   const myPets = me ? progress.pets[me.id] ?? [] : [];
   const myEggs = me ? progress.eggs[me.id] ?? [] : [];
   const selectedPet = myPets.find((candidate) => candidate.id === selectedPetId) ?? myPets[0];
@@ -480,17 +477,6 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
           </button>
         ) : null}
       </header>
-
-      <section className={`progress-pill info-card ${collapsedInfo.progress ? "is-collapsed" : ""}`} aria-label="島的進度">
-        <InfoCardToggle label="島嶼進度" collapsed={Boolean(collapsedInfo.progress)} onToggle={() => toggleInfoCard("progress")} />
-        <div className="info-card-content">
-          <span>
-            <em>{score}</em> 分
-          </span>
-          <span>自由探索</span>
-          {mode ? <span className="mode">{mode === "remote" ? "全班連線" : "本機分頁"}</span> : null}
-        </div>
-      </section>
 
       <Notifications
         notifications={notifications}
