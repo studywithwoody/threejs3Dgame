@@ -4,25 +4,31 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import CameraControls, { type CameraAdjustment } from "@/components/CameraControls";
-import type { PetState } from "@/game/types";
+import type { PetSpecies, PetState } from "@/game/types";
 
 type Props = {
   pets?: PetState[];
   onInteract?: (pet: PetState) => void;
 };
 
-const MODEL_PATHS: Record<PetState["species"], string> = {
-  bunny: "/pets/chick.glb",
-  cat: "/pets/cat.glb",
-  dog: "/pets/dog.glb",
-  chicken: "/pets/chick.glb",
+const MODEL_PATHS: Record<PetSpecies, string> = {
+  bunny: "/assets/cube-pets/Models/GLB%20format/animal-bunny.glb",
+  cat: "/assets/cube-pets/Models/GLB%20format/animal-cat.glb",
+  dog: "/assets/cube-pets/Models/GLB%20format/animal-dog.glb",
+  chicken: "/assets/cube-pets/Models/GLB%20format/animal-chick.glb",
+  beaver: "/assets/cube-pets/Models/GLB%20format/animal-beaver.glb",
+  cow: "/assets/cube-pets/Models/GLB%20format/animal-cow.glb",
+  deer: "/assets/cube-pets/Models/GLB%20format/animal-deer.glb",
+  fox: "/assets/cube-pets/Models/GLB%20format/animal-fox.glb",
+  panda: "/assets/cube-pets/Models/GLB%20format/animal-panda.glb",
+  penguin: "/assets/cube-pets/Models/GLB%20format/animal-penguin.glb",
 };
 
 const CAMERA_TARGET = new THREE.Vector3(0, 1.1, 0);
 const CAMERA_DEFAULT = { yaw: 0, pitch: 0.14, distance: 8.2 };
 // The room is roughly 10.8 world units wide, so this keeps each pet close to
 // one fifth of the room while leaving enough space for five pets to wander.
-const PET_SCALE = 1.1;
+const PET_MODEL_HEIGHT = 1.25;
 const PET_SPOTS = [
   new THREE.Vector3(-2.25, 0, 0.9),
   new THREE.Vector3(2.25, 0, 0.9),
@@ -161,8 +167,11 @@ export default function PetRoom3D({ pets = [], onInteract }: Props) {
         MODEL_PATHS[pet.species],
         (gltf) => {
           const model = gltf.scene;
-          model.scale.setScalar(PET_SCALE);
-          model.position.y = 0.08;
+          const bounds = new THREE.Box3().setFromObject(model);
+          const size = bounds.getSize(new THREE.Vector3());
+          const scale = PET_MODEL_HEIGHT / Math.max(size.y, 0.001);
+          model.scale.setScalar(scale);
+          model.position.y = 0.08 - bounds.min.y * scale;
           model.traverse((object) => {
             if (object instanceof THREE.Mesh) {
               object.castShadow = true;

@@ -15,7 +15,17 @@ export type IslandProgress = {
 };
 
 export type PetStatus = "healthy" | "sick" | "dead";
-export type PetSpecies = "bunny" | "cat" | "dog" | "chicken";
+export type PetSpecies =
+  | "bunny"
+  | "cat"
+  | "dog"
+  | "chicken"
+  | "beaver"
+  | "cow"
+  | "deer"
+  | "fox"
+  | "panda"
+  | "penguin";
 
 export type PetState = {
   id: string;

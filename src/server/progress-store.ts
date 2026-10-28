@@ -2,7 +2,7 @@ import "server-only";
 
 import { eq } from "drizzle-orm";
 import { eggs, pets, scoreTransactions, userProgress, userQuestionProgress } from "@/db/schema";
-import { award, stationOrder } from "@/game/progress";
+import { award, PET_SPECIES, stationOrder } from "@/game/progress";
 import type { Question } from "@/game/questions";
 import { POINTS_PER_STATION, type IslandProgress } from "@/game/types";
 import { getDb } from "@/lib/db";
@@ -24,7 +24,7 @@ function progressFromRows(userId: string, questions: Question[], progressRow: { 
     pets: { [userId]: petRows.map((pet) => ({
       id: pet.id,
       name: pet.name,
-      species: pet.species === "cat" || pet.species === "dog" || pet.species === "chicken" ? pet.species : "bunny",
+      species: PET_SPECIES.includes(pet.species as typeof PET_SPECIES[number]) ? pet.species as typeof PET_SPECIES[number] : "bunny",
       lastFedAt: pet.lastFedAt.getTime(),
       status: "healthy" as const,
       feedings: pet.feedings,

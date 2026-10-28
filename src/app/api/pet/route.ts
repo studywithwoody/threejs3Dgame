@@ -1,4 +1,4 @@
-import { buyEgg, discardPet, feedPet, hatchEgg, normalizeProgress } from "@/game/progress";
+import { buyEgg, discardPet, feedPet, hatchEgg, normalizeProgress, PET_SPECIES } from "@/game/progress";
 import { type IslandProgress, type PetSpecies } from "@/game/types";
 import { getAuth, isAuthConfigured } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -57,5 +57,5 @@ function applyAction(progress: IslandProgress, body: Body, playerId: string) {
 }
 
 function isPetSpecies(value: unknown): value is PetSpecies {
-  return value === "cat" || value === "dog" || value === "chicken";
+  return typeof value === "string" && PET_SPECIES.includes(value as PetSpecies);
 }

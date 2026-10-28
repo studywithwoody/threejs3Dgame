@@ -3,6 +3,10 @@ import { emptyProgress, POINTS_PER_STATION, type EggState, type IslandProgress, 
 export const MAX_PETS = 5;
 export const EGG_COST = 10;
 
+export const PET_SPECIES = [
+  "bunny", "cat", "dog", "chicken", "beaver", "cow", "deer", "fox", "panda", "penguin",
+] as const satisfies readonly PetSpecies[];
+
 const STORAGE_KEY = "dawn-isle-progress-v1";
 
 export function stationOrder(questions: { id: string; stage: number }[]) {
@@ -124,7 +128,10 @@ export function petStatus(lastFedAt: number, now = Date.now()): PetStatus {
 }
 
 export function freshPet(now = Date.now(), species: PetSpecies = "bunny", id = `pet-${now}`): PetState {
-  const names: Record<PetSpecies, string> = { bunny: "小曙", cat: "小貓", dog: "小狗", chicken: "小雞" };
+  const names: Record<PetSpecies, string> = {
+    bunny: "小曙", cat: "小貓", dog: "小狗", chicken: "小雞", beaver: "小河狸",
+    cow: "小乳牛", deer: "小鹿", fox: "小狐狸", panda: "小熊貓", penguin: "小企鵝",
+  };
   return { id, name: names[species], species, lastFedAt: now, status: "healthy", feedings: 0 };
 }
 
@@ -165,7 +172,7 @@ export function hatchEgg(state: IslandProgress, playerId: string, eggId: string,
   const pets = state.pets[playerId] ?? [];
   const eggs = state.eggs[playerId] ?? [];
   const egg = eggs.find((candidate) => candidate.id === eggId);
-  if (!egg || pets.length >= MAX_PETS || !["cat", "dog", "chicken"].includes(species)) return null;
+  if (!egg || pets.length >= MAX_PETS || !PET_SPECIES.includes(species)) return null;
   return {
     ...state,
     pets: { ...state.pets, [playerId]: [...pets, freshPet(now, species, `pet-${egg.id}`)] },
@@ -184,7 +191,7 @@ function normalizePet(raw: unknown, fallbackId: string): PetState | null {
   const value = raw as Partial<PetState>;
   const lastFedAt = Number(value.lastFedAt);
   if (!Number.isFinite(lastFedAt) || lastFedAt <= 0) return null;
-  const species = value.species === "cat" || value.species === "dog" || value.species === "chicken" ? value.species : "bunny";
+  const species = PET_SPECIES.includes(value.species as PetSpecies) ? value.species as PetSpecies : "bunny";
   const name = typeof value.name === "string" && value.name.trim() ? value.name.trim().slice(0, 12) : "小曙";
   const feedings = Number.isFinite(Number(value.feedings)) ? Math.max(0, Number(value.feedings)) : 0;
   const id = typeof value.id === "string" && value.id.trim() ? value.id : fallbackId;

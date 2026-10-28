@@ -22,6 +22,7 @@ import {
   EGG_COST,
   loadProgress,
   normalizeProgress,
+  PET_SPECIES,
   saveProgress,
   signature,
   STORAGE_KEY,
@@ -376,7 +377,7 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
       setPetNote(`寵物已達 ${MAX_PETS} 隻上限，先到管理頁丟棄一隻吧！`);
       return;
     }
-    const species = (["cat", "dog", "chicken"] as PetSpecies[])[Math.floor(Math.random() * 3)];
+    const species = PET_SPECIES[Math.floor(Math.random() * PET_SPECIES.length)];
     const local = hatchEgg(progressRef.current, me.id, eggId, species);
     if (!local) return;
     try {
@@ -883,7 +884,11 @@ function petEmoji(pet?: Pick<PetState, "species" | "status">) {
   if (!pet) return "🥚";
   if (pet.status === "dead") return "🪦";
   if (pet.status === "sick") return "🤒";
-  return pet.species === "cat" ? "🐱" : pet.species === "dog" ? "🐶" : pet.species === "chicken" ? "🐔" : "🐰";
+  const emojis: Record<PetSpecies, string> = {
+    bunny: "🐰", cat: "🐱", dog: "🐶", chicken: "🐔", beaver: "🦫",
+    cow: "🐮", deer: "🦌", fox: "🦊", panda: "🐼", penguin: "🐧",
+  };
+  return emojis[pet.species];
 }
 
 function petStatusLabel(status?: PetState["status"]) {
@@ -898,7 +903,11 @@ function petStatusText(pet: PetState | undefined, petCount: number, eggCount: nu
 }
 
 function petSpeciesLabel(species: PetSpecies) {
-  return species === "cat" ? "貓咪" : species === "dog" ? "狗狗" : species === "chicken" ? "小雞" : "兔子";
+  const labels: Record<PetSpecies, string> = {
+    bunny: "兔子", cat: "貓咪", dog: "狗狗", chicken: "小雞", beaver: "河狸",
+    cow: "乳牛", deer: "小鹿", fox: "狐狸", panda: "熊貓", penguin: "企鵝",
+  };
+  return labels[species];
 }
 
 function profileFromUser(user: SessionUser): Profile {
