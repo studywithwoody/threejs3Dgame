@@ -16,6 +16,7 @@ const POSE_MS = 200;
 export type GameApi = {
   enter: (profile: Profile) => void;
   leave: () => void;
+  jump: () => void;
   setProfile: (profile: Profile) => void;
   applyProgress: (progress: IslandProgress) => void;
   upsertRemote: (player: Profile & Pose) => void;
@@ -287,6 +288,12 @@ export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[]
   let frame = 0;
   let running = true;
 
+  const requestJump = () => {
+    if (uiBridge.typing || !playing || !grounded) return;
+    grounded = false;
+    jumpVelocity = 8.5;
+  };
+
   const resize = () => {
     const width = host.clientWidth || 1;
     const height = host.clientHeight || 1;
@@ -326,10 +333,7 @@ export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[]
     }
     keys.add(event.key.toLowerCase());
     if (event.key === " " || event.key.startsWith("Arrow")) event.preventDefault();
-    if (event.key === " " && playing && !uiBridge.typing && grounded) {
-      grounded = false;
-      jumpVelocity = 8.5;
-    }
+    if (event.key === " ") requestJump();
     if (event.key.toLowerCase() === "e") uiBridge.onInteract();
   };
   const onKeyUp = (event: KeyboardEvent) => {
@@ -487,6 +491,7 @@ export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[]
   tick();
 
   const api: GameApi = {
+    jump: requestJump,
     enter(next) {
       profile = next;
       playing = true;

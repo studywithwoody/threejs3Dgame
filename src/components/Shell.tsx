@@ -537,7 +537,7 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
         </aside>
       ) : null}
 
-      {me ? <Joystick /> : null}
+      {me ? <MobileControls api={apiRef} /> : null}
 
       {showGate ? (
         <div className="gate">
@@ -757,7 +757,7 @@ function SessionWatch({
   return null;
 }
 
-function Joystick() {
+function MobileControls({ api }: { api: { current: GameApi | null } }) {
   const padRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLElement>(null);
 
@@ -807,9 +807,22 @@ function Joystick() {
   }, []);
 
   return (
-    <div className="joystick" ref={padRef} aria-hidden="true">
-      <i ref={knobRef} />
-    </div>
+    <>
+      <div className="joystick" ref={padRef} aria-hidden="true">
+        <i ref={knobRef} />
+      </div>
+      <button
+        className="jump-button"
+        type="button"
+        aria-label="跳躍"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          api.current?.jump();
+        }}
+      >
+        跳
+      </button>
+    </>
   );
 }
 
