@@ -9,7 +9,7 @@ import CharacterPreview3D from "@/components/CharacterPreview3D";
 import { authClient } from "@/lib/auth-client";
 import { AVATAR_COLORS, cleanNickname, colorFromId, displayName } from "@/lib/profile";
 import { uiBridge } from "@/game/bridge";
-import { connectIsland, type IslandConnection } from "@/game/net";
+import { connectIsland, type IslandConnection, type NetMode } from "@/game/net";
 import type { GameApi } from "@/game/mount";
 import { setStick } from "@/game/mount";
 import { BLOCKY_MODELS } from "@/game/avatar";
@@ -88,6 +88,7 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
   const [me, setMe] = useState<Profile | null>(null);
   const [progress, setProgress] = useState<IslandProgress>(emptyProgress);
   const [roster, setRoster] = useState<Profile[]>([]);
+  const [mode, setMode] = useState<NetMode | null>(null);
   const [notifications, setNotifications] = useState<IslandNotification[]>([]);
   const [guestName, setGuestName] = useState("");
   const [guestColor, setGuestColor] = useState<string>(AVATAR_COLORS[0]);
@@ -111,12 +112,14 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
   };
 
   const addNotification = useCallback((message: string | null | undefined) => {
-    if (!message) return;
+    if (!message) return null;
     notificationId.current += 1;
+    const id = `notification-${notificationId.current}`;
     setNotifications((previous) => [
       ...previous,
-      { id: `notification-${notificationId.current}`, message },
+      { id, message },
     ]);
+    return id;
   }, []);
 
   progressRef.current = progress;
@@ -144,7 +147,12 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
         netRef.current?.sendProgress(next);
         return next;
       });
-      addNotification("金幣 +10 分");
+      const notificationId = addNotification("金幣 +10 分");
+      if (notificationId) {
+        window.setTimeout(() => {
+          setNotifications((previous) => previous.filter((notification) => notification.id !== notificationId));
+        }, 5000);
+      }
     };
     uiBridge.onPose = (pose) => netRef.current?.sendPose(pose);
     return () => {
@@ -253,6 +261,7 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
         return;
       }
       netRef.current = conn;
+      setMode(conn.mode);
       conn.sendProgress(current);
     },
     [status?.databaseConfigured],
@@ -427,6 +436,7 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
 
   const myPets = me ? progress.pets[me.id] ?? [] : [];
   const myEggs = me ? progress.eggs[me.id] ?? [] : [];
+  const score = me ? progress.scores[me.id] ?? 0 : 0;
   const selectedPet = myPets.find((candidate) => candidate.id === selectedPetId) ?? myPets[0];
   const displayPet = selectedPet ? { ...selectedPet, status: petStatus(selectedPet.lastFedAt) } : undefined;
   const roomPets = useMemo(
