@@ -343,19 +343,28 @@ export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[]
   window.addEventListener("keyup", onKeyUp);
 
   let dragging = false;
-  let lastPointer = 0;
+  let activePointerId: number | null = null;
+  let lastPointerX = 0;
+  let lastPointerY = 0;
   const onPointerDown = (event: PointerEvent) => {
-    if (editorEnabled || !playing || event.button !== 0) return;
+    if (editorEnabled || !playing || (event.pointerType === "mouse" && event.button !== 0)) return;
     dragging = true;
-    lastPointer = event.clientX;
+    activePointerId = event.pointerId;
+    lastPointerX = event.clientX;
+    lastPointerY = event.clientY;
+    host.setPointerCapture?.(event.pointerId);
   };
   const onPointerMove = (event: PointerEvent) => {
-    if (!dragging) return;
-    cameraYaw -= (event.clientX - lastPointer) * 0.005;
-    lastPointer = event.clientX;
+    if (!dragging || event.pointerId !== activePointerId) return;
+    cameraYaw -= (event.clientX - lastPointerX) * 0.005;
+    cameraPitch = THREE.MathUtils.clamp(cameraPitch + (event.clientY - lastPointerY) * 0.008, 0.12, 0.95);
+    lastPointerX = event.clientX;
+    lastPointerY = event.clientY;
   };
-  const onPointerUp = () => {
+  const onPointerUp = (event: PointerEvent) => {
+    if (event.pointerId !== activePointerId) return;
     dragging = false;
+    activePointerId = null;
   };
   const onWheel = (event: WheelEvent) => {
     if (editorEnabled || !playing) return;
@@ -365,6 +374,7 @@ export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[]
   host.addEventListener("pointerdown", onPointerDown);
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("pointercancel", onPointerUp);
   host.addEventListener("wheel", onWheel, { passive: false });
 
   const clock = new THREE.Clock();
@@ -604,6 +614,7 @@ export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[]
       host.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
       host.removeEventListener("wheel", onWheel);
       api.leave();
       world.dispose();

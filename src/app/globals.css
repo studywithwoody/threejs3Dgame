@@ -18,7 +18,7 @@ button { cursor: pointer; }
 button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
 
 .app { position: relative; height: 100dvh; overflow: hidden; background: #f3e4d6; }
-.stage-host { position: absolute; inset: 0; z-index: 0; isolation: isolate; }
+.stage-host { position: absolute; inset: 0; z-index: 0; isolation: isolate; touch-action: none; }
 .stage-host canvas { display: block; width: 100%; height: 100%; }
 .scene-editor-hud {
   position: absolute;
@@ -451,6 +451,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   overflow: hidden;
   border: 1px solid #ffffff;
   box-shadow: inset 0 -15px 0 #dcae77;
+  touch-action: none;
 }
 .pet-room-3d canvas { display: block; width: 100%; height: 100%; }
 .pet-room-3d::before {

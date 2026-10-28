@@ -309,6 +309,36 @@ export default function PetRoom3D({ pets = [], onInteract, furniture = [], editi
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let hoveredActor: PetActor | null = null;
+    let draggingCamera = false;
+    let activePointerId: number | null = null;
+    let lastPointerX = 0;
+    let lastPointerY = 0;
+    let suppressClick = false;
+    const onCameraPointerDown = (event: PointerEvent) => {
+      if (editingRef.current || (event.pointerType === "mouse" && event.button !== 0)) return;
+      draggingCamera = true;
+      activePointerId = event.pointerId;
+      lastPointerX = event.clientX;
+      lastPointerY = event.clientY;
+      suppressClick = false;
+      renderer.domElement.setPointerCapture(event.pointerId);
+    };
+    const onCameraPointerMove = (event: PointerEvent) => {
+      if (!draggingCamera || event.pointerId !== activePointerId) return;
+      const deltaX = event.clientX - lastPointerX;
+      const deltaY = event.clientY - lastPointerY;
+      if (Math.abs(deltaX) + Math.abs(deltaY) > 2) suppressClick = true;
+      const controls = cameraControlsRef.current;
+      controls.yaw -= deltaX * 0.012;
+      controls.pitch = THREE.MathUtils.clamp(controls.pitch + deltaY * 0.008, -0.18, 1.05);
+      lastPointerX = event.clientX;
+      lastPointerY = event.clientY;
+    };
+    const stopCameraDragging = (event: PointerEvent) => {
+      if (event.pointerId !== activePointerId) return;
+      draggingCamera = false;
+      activePointerId = null;
+    };
     const onPointerMove = (event: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -319,6 +349,10 @@ export default function PetRoom3D({ pets = [], onInteract, furniture = [], editi
       renderer.domElement.style.cursor = furnitureHit || hoveredActor ? "pointer" : "default";
     };
     const onClick = () => {
+      if (suppressClick) {
+        suppressClick = false;
+        return;
+      }
       if (editing) {
         const hit = raycaster.intersectObjects([...furnitureGroups.values()], true)[0];
         if (hit) {
@@ -335,6 +369,10 @@ export default function PetRoom3D({ pets = [], onInteract, furniture = [], editi
       hoveredActor.petJump = 1;
       interactRef.current?.(hoveredActor.pet);
     };
+    renderer.domElement.addEventListener("pointerdown", onCameraPointerDown);
+    renderer.domElement.addEventListener("pointermove", onCameraPointerMove);
+    renderer.domElement.addEventListener("pointerup", stopCameraDragging);
+    renderer.domElement.addEventListener("pointercancel", stopCameraDragging);
     renderer.domElement.addEventListener("pointermove", onPointerMove);
     renderer.domElement.addEventListener("click", onClick);
 
@@ -387,6 +425,10 @@ export default function PetRoom3D({ pets = [], onInteract, furniture = [], editi
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      renderer.domElement.removeEventListener("pointerdown", onCameraPointerDown);
+      renderer.domElement.removeEventListener("pointermove", onCameraPointerMove);
+      renderer.domElement.removeEventListener("pointerup", stopCameraDragging);
+      renderer.domElement.removeEventListener("pointercancel", stopCameraDragging);
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("click", onClick);
       transformControls.removeEventListener("change", onTransformChange);
@@ -429,7 +471,7 @@ export default function PetRoom3D({ pets = [], onInteract, furniture = [], editi
         {pets.length === 0 ? "🏠" : pets.some((pet) => pet.status === "sick") ? "🤒" : "😊"}
       </span>
       {pets.length > 0 ? <span className="pet-count">小屋裡有 {pets.length} 位小夥伴</span> : null}
-      <span className="pet-3d-hint">方向鍵調整視角，＋／－縮放</span>
+      <span className="pet-3d-hint">拖曳旋轉 · 滾輪縮放</span>
     </div>
   );
 }
