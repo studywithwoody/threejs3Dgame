@@ -492,15 +492,10 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
           <h1>曙島</h1>
           <p>五座物理站，全班一起點亮。</p>
         </div>
-        {me ? (
-          <button
-            className="header-action"
-            type="button"
-            onClick={() => (status?.authConfigured ? void authClient.signOut() : leaveGame())}
-          >
-            {status?.authConfigured ? "登出" : "離開島嶼"}
-          </button>
-        ) : null}
+        <nav className="header-nav" aria-label="主要導覽">
+          <Link className="header-action" href="/furniture">家具商店</Link>
+          {me ? <button className="header-action" type="button" onClick={() => (status?.authConfigured ? void authClient.signOut() : leaveGame())}>{status?.authConfigured ? "登出" : "離開島嶼"}</button> : null}
+        </nav>
       </header>
 
       <Notifications

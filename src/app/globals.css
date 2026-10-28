@@ -119,6 +119,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 }
 .header-action:hover { background: #fff; }
 .header-action:active { transform: translateY(1px); }
+.header-nav { display: flex; align-items: center; gap: 8px; pointer-events: auto; }
 .eyebrow {
   margin: 0;
   color: var(--coral);
@@ -609,6 +610,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 .back-link:hover { color: var(--coral); }
 .room-score { justify-self: end; padding: 11px 17px; border: 1px solid #fff; border-radius: 999px; background: #fff8f4d9; box-shadow: 0 8px 20px #4a2a1414; font-size: 24px; font-weight: 900; }
 .room-score small { margin-left: 4px; color: var(--muted); font-size: 12px; }
+.room-header-actions, .furniture-page-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.room-shop-link { display: inline-flex; align-items: center; min-height: 38px; padding: 0 12px; border: 1px solid #fff; border-radius: 11px; background: #fff8f4d9; color: var(--ink); font-size: 12px; font-weight: 800; text-decoration: none; box-shadow: 0 8px 20px #4a2a1414; }
+.room-shop-link:hover { background: #fff; color: var(--coral); }
 .room-page-content { max-width: 1440px; min-height: calc(100dvh - 126px); margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 370px); gap: 20px; align-items: stretch; }
 .room-page-stage { min-height: 560px; position: relative; overflow: hidden; border: 1px solid #fff; border-radius: 26px; background: #bde8ef; box-shadow: 0 20px 55px #4a2a1424; }
 .room-page-stage .pet-room-3d { height: 100%; min-height: 560px; margin: 0; border: 0; border-radius: 0; box-shadow: inset 0 -20px 0 #dcae77; }
@@ -626,15 +630,50 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 .furniture-item .texty { grid-column: 2 / -1; justify-self: start; padding: 0; }
 .furniture-icon { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 10px; background: #f7dfc8; font-size: 20px; }
 .pet-room-3d.is-editing { cursor: crosshair; }
+.furniture-page { min-height: 100dvh; overflow: auto; padding: 28px clamp(16px, 4vw, 56px) 36px; background: radial-gradient(circle at 12% 0%, #fff4db, #f3e4d6 48%, #e2c7b4); }
+.furniture-page-header { max-width: 1440px; margin: 0 auto 20px; display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+.furniture-page-header h1 { margin: 6px 0 4px; font-size: clamp(30px, 5vw, 54px); letter-spacing: .04em; }
+.furniture-page-header p:not(.eyebrow) { margin: 0; color: var(--muted); }
+.furniture-shop-layout { max-width: 1440px; min-height: 620px; margin: 0 auto; display: grid; grid-template-columns: minmax(280px, .78fr) minmax(0, 1.42fr); gap: 20px; }
+.furniture-catalog-panel, .furniture-preview-panel { min-width: 0; padding: 22px; border: 1px solid #fff; border-radius: 24px; background: #fffdfbeb; box-shadow: 0 20px 55px #4a2a1424; backdrop-filter: blur(18px); }
+.furniture-panel-heading, .furniture-preview-copy, .furniture-purchase-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.furniture-panel-heading h2, .furniture-preview-copy h2 { margin: 5px 0 0; font-size: 26px; }
+.furniture-panel-heading > span, .furniture-price { color: var(--coral); font-weight: 900; }
+.furniture-catalog-grid { display: grid; gap: 8px; margin-top: 18px; }
+.furniture-catalog-card { display: flex; align-items: center; gap: 11px; width: 100%; padding: 11px; border: 1px solid #f0e0d8; border-radius: 14px; background: #fff; color: var(--ink); text-align: left; }
+.furniture-catalog-card:hover, .furniture-catalog-card.is-selected { border-color: var(--coral); box-shadow: 0 0 0 2px #db6a4122; }
+.furniture-catalog-card > span:last-child { display: grid; gap: 3px; min-width: 0; }
+.furniture-catalog-card small { color: var(--muted); font-size: 11px; }
+.furniture-preview-panel { display: flex; flex-direction: column; }
+.furniture-preview-copy { flex: 0 0 auto; }
+.furniture-preview-3d { position: relative; min-height: 500px; flex: 1; margin: 18px 0; overflow: hidden; border: 1px solid #fff; border-radius: 18px; background: #bde8ef; box-shadow: inset 0 -18px 0 #dcae77; touch-action: none; }
+.furniture-preview-3d canvas { display: block; width: 100%; height: 100%; }
+.furniture-preview-3d .camera-controls { top: 12px; right: 12px; left: auto; }
+.furniture-preview-hint, .furniture-preview-error { position: absolute; z-index: 2; left: 50%; bottom: 14px; transform: translateX(-50%); padding: 6px 11px; border-radius: 999px; background: #fff8f4dd; color: var(--muted); font-size: 11px; white-space: nowrap; pointer-events: none; }
+.furniture-preview-error { top: 50%; bottom: auto; color: #a34a4a; }
+.furniture-preview-empty, .furniture-empty { display: grid; min-height: 180px; place-items: center; color: var(--muted); }
+.furniture-purchase-row { align-items: end; }
+.furniture-purchase-row p { max-width: 480px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.furniture-purchase-row button { width: auto; min-width: 120px; margin: 0; }
+.furniture-license { max-width: 1440px; margin: 14px auto 0; color: var(--muted); font-size: 11px; }
 @media (max-width: 860px) {
   .room-page { padding: 14px 12px 20px; }
   .room-page-header { grid-template-columns: 1fr auto; }
   .room-page-header > div:nth-child(2) { grid-column: 1 / -1; grid-row: 1; }
   .room-page-header .back-link { grid-row: 2; }
-  .room-score { grid-row: 2; }
+  .room-header-actions { grid-row: 2; }
   .room-page-content { display: block; min-height: 0; }
   .room-page-stage, .room-page-stage .pet-room-3d { min-height: 62dvh; height: 62dvh; }
   .room-page-panel { margin-top: 14px; }
+  .furniture-page { padding: 18px 12px 28px; }
+  .furniture-page-header { align-items: start; flex-direction: column; }
+  .furniture-page-actions { width: 100%; justify-content: space-between; }
+  .furniture-shop-layout { display: flex; flex-direction: column; min-height: 0; }
+  .furniture-catalog-panel, .furniture-preview-panel { padding: 16px; }
+  .furniture-catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .furniture-preview-3d { min-height: 420px; }
+  .furniture-purchase-row { align-items: stretch; flex-direction: column; }
+  .furniture-purchase-row button { width: 100%; }
 }
 
 .nameplate {
