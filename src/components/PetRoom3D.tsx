@@ -50,10 +50,17 @@ export default function PetRoom3D({ pets = [], onInteract, furniture = [], editi
   const interactRef = useRef(onInteract);
   const selectFurnitureRef = useRef(onSelectFurniture);
   const furnitureChangeRef = useRef(onFurnitureChange);
+  const furnitureRef = useRef(furniture);
+  const editingRef = useRef(editing);
+  const selectedFurnitureIdRef = useRef(selectedFurnitureId);
+  const syncFurnitureRef = useRef<(() => void) | null>(null);
   const cameraControlsRef = useRef<CameraControls>({ ...CAMERA_DEFAULT });
   interactRef.current = onInteract;
   selectFurnitureRef.current = onSelectFurniture;
   furnitureChangeRef.current = onFurnitureChange;
+  furnitureRef.current = furniture;
+  editingRef.current = editing;
+  selectedFurnitureIdRef.current = selectedFurnitureId;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -120,6 +127,7 @@ export default function PetRoom3D({ pets = [], onInteract, furniture = [], editi
 
     const loader = new GLTFLoader();
     const furnitureGroups = new Map<string, THREE.Group>();
+    const loadingFurniture = new Set<string>();
     const furnitureRoot = new THREE.Group();
     furnitureRoot.name = "room-furniture";
     scene.add(furnitureRoot);
@@ -152,14 +160,15 @@ export default function PetRoom3D({ pets = [], onInteract, furniture = [], editi
     const actors: PetActor[] = [];
 
     const syncFurniture = () => {
-      const active = new Set(furniture.map((item) => item.id));
+      const currentFurniture = furnitureRef.current;
+      const active = new Set(currentFurniture.map((item) => item.id));
       for (const [id, group] of furnitureGroups) {
         if (!active.has(id)) {
           furnitureRoot.remove(group);
           furnitureGroups.delete(id);
         }
       }
-      furniture.forEach((item) => {
+      currentFurniture.forEach((item) => {
         const catalog = FURNITURE_BY_ID.get(item.assetId);
         if (!catalog) return;
         const group = furnitureGroups.get(item.id);
@@ -169,7 +178,11 @@ export default function PetRoom3D({ pets = [], onInteract, furniture = [], editi
           group.scale.set(...item.scale);
           return;
         }
+        if (loadingFurniture.has(item.id)) return;
+        loadingFurniture.add(item.id);
         loader.load(catalog.path, (gltf) => {
+          loadingFurniture.delete(item.id);
+          if (!furnitureRef.current.some((current) => current.id === item.id)) return;
           const model = gltf.scene;
           const bounds = new THREE.Box3().setFromObject(model);
           const size = bounds.getSize(new THREE.Vector3());
@@ -185,21 +198,28 @@ export default function PetRoom3D({ pets = [], onInteract, furniture = [], editi
           itemGroup.add(model);
           furnitureGroups.set(item.id, itemGroup);
           furnitureRoot.add(itemGroup);
-          if (selectedFurnitureId === item.id && editing) transformControls.attach(itemGroup);
-        }, undefined, () => undefined);
+          if (selectedFurnitureIdRef.current === item.id && editingRef.current) transformControls.attach(itemGroup);
+        }, undefined, (error) => {
+          loadingFurniture.delete(item.id);
+          console.error(`家具模型載入失敗：${catalog.path}`, error);
+        });
       });
+      const selected = selectedFurnitureIdRef.current ? furnitureGroups.get(selectedFurnitureIdRef.current) : null;
+      if (editingRef.current && selected) transformControls.attach(selected);
+      else transformControls.detach();
     };
+    syncFurnitureRef.current = syncFurniture;
     syncFurniture();
-    const selectedGroup = () => selectedFurnitureId ? furnitureGroups.get(selectedFurnitureId) ?? null : null;
+    const selectedGroup = () => selectedFurnitureIdRef.current ? furnitureGroups.get(selectedFurnitureIdRef.current) ?? null : null;
     const updateEditorBounds = () => {
       const group = selectedGroup();
-      editorBoxHelper.visible = Boolean(group && editing);
-      if (!group || !editing) return;
+      editorBoxHelper.visible = Boolean(group && editingRef.current);
+      if (!group || !editingRef.current) return;
       editorBox.setFromObject(group);
       editorBoxHelper.updateMatrixWorld(true);
     };
-    const collectFurniture = () => [...furnitureGroups.entries()].map(([id, group]) => ({ id, assetId: furniture.find((item) => item.id === id)?.assetId ?? "", position: [group.position.x, group.position.y, group.position.z] as [number, number, number], rotation: [group.rotation.x, group.rotation.y, group.rotation.z] as [number, number, number], scale: [group.scale.x, group.scale.y, group.scale.z] as [number, number, number] })).filter((item) => FURNITURE_BY_ID.has(item.assetId));
-    if (editing && selectedFurnitureId) {
+    const collectFurniture = () => [...furnitureGroups.entries()].map(([id, group]) => ({ id, assetId: furnitureRef.current.find((item) => item.id === id)?.assetId ?? "", position: [group.position.x, group.position.y, group.position.z] as [number, number, number], rotation: [group.rotation.x, group.rotation.y, group.rotation.z] as [number, number, number], scale: [group.scale.x, group.scale.y, group.scale.z] as [number, number, number] })).filter((item) => FURNITURE_BY_ID.has(item.assetId));
+    if (editingRef.current && selectedFurnitureIdRef.current) {
       const selected = selectedGroup();
       if (selected) transformControls.attach(selected);
     }
@@ -372,6 +392,7 @@ export default function PetRoom3D({ pets = [], onInteract, furniture = [], editi
       transformControls.removeEventListener("change", onTransformChange);
       transformControls.removeEventListener("dragging-changed", onTransformEnd);
       transformControls.dispose();
+      syncFurnitureRef.current = null;
       renderer.dispose();
       mount.removeChild(renderer.domElement);
       scene.traverse((object) => {
@@ -383,6 +404,10 @@ export default function PetRoom3D({ pets = [], onInteract, furniture = [], editi
       });
     };
   }, [pets]);
+
+  useEffect(() => {
+    syncFurnitureRef.current?.();
+  }, [furniture, editing, selectedFurnitureId]);
 
   const adjustCamera = (change: CameraAdjustment) => {
     const controls = cameraControlsRef.current;
