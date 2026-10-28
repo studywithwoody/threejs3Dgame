@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import IslandStage from "@/components/IslandStage";
 import CameraControls from "@/components/CameraControls";
 import Notifications, { type IslandNotification } from "@/components/Notifications";
-import PetRoom3D from "@/components/PetRoom3D";
 import CharacterPreview3D from "@/components/CharacterPreview3D";
 import { authClient } from "@/lib/auth-client";
 import { AVATAR_COLORS, cleanNickname, colorFromId, displayName } from "@/lib/profile";
@@ -101,7 +101,6 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
   const [avatarSetupOpen, setAvatarSetupOpen] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [signingIn, setSigningIn] = useState(false);
-  const [roomOpen, setRoomOpen] = useState(false);
   const [petManagerOpen, setPetManagerOpen] = useState(false);
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [petNote, setPetNote] = useState<string | null>(null);
@@ -519,11 +518,11 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
                 <small>我的角色 · 名稱與顏色</small>
               </span>
             </button>
-            <button className="room-button" type="button" onClick={() => { setPetNote(null); setRoomOpen(true); }}>
+            <Link className="room-button" href="/room">
               <span className="pet-mini">{petEmoji(displayPet)}</span>
               <span><strong>我的房間</strong><small>{myPets.length} 隻寵物 · {myEggs.length} 顆蛋</small></span>
               <b>進入 →</b>
-            </button>
+            </Link>
             <h2>島上的人</h2>
             <ul className="roster">
               {people.map((person) => (
@@ -648,53 +647,6 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
         </div>
       ) : null}
 
-      {roomOpen && me ? (
-        <div className="gate">
-          <section className="card room-card" role="dialog" aria-labelledby="room-title">
-            <button
-              className="room-close"
-              type="button"
-              aria-label="關閉我的房間"
-              title="關閉我的房間"
-              onClick={() => setRoomOpen(false)}
-            >
-              ×
-            </button>
-            <PetRoom3D
-              pets={roomPets}
-              onInteract={(pet) => {
-                setSelectedPetId(pet.id);
-                setPetNote(pet.status === "sick" ? `${pet.name}蹭了蹭你的手，但看起來還是需要休息。` : `${pet.name}開心地跳起來！牠知道你一直陪著牠。`);
-              }}
-            />
-            <p className="eyebrow">MY ROOM · 寵物養成</p>
-            <h2 id="room-title">{displayPet?.name ?? "我的寵物小屋"}</h2>
-            <p>{petStatusText(displayPet, myPets.length, myEggs.length)}</p>
-            {displayPet ? (
-              <div className="pet-stats">
-                <span>狀態 <b className={`status-${displayPet.status}`}>{petStatusLabel(displayPet.status)}</b></span>
-                <span>照顧 {displayPet.feedings} 次</span>
-                <span>飼料 5 分／份</span>
-              </div>
-            ) : null}
-            <div className="pet-shop">
-              <div><strong>寵物店</strong><small>答題分數可以換成飼料或神秘蛋</small></div>
-              {displayPet ? <button className="primary feed-button" type="button" onClick={() => void feedMyPet()} disabled={displayPet.status === "dead" || score < 5}>
-                🥕 餵食 <b>5 分</b>
-              </button> : null}
-              <button className="primary feed-button" type="button" onClick={() => void buyPetEgg()} disabled={score < EGG_COST}>
-                🥚 買蛋 <b>{EGG_COST} 分</b>
-              </button>
-            </div>
-            <button className="secondary pet-manage-button" type="button" onClick={() => setPetManagerOpen(true)}>
-              🧺 管理寵物與蛋（{myPets.length}/{MAX_PETS}）
-            </button>
-            {petNote ? <p className="pet-note">{petNote}</p> : null}
-            <p className="note">一天沒餵會生病，兩天沒餵會離世。最多養 {MAX_PETS} 隻寵物，空出名額才能孵新蛋。</p>
-          </section>
-        </div>
-      ) : null}
-
       {petManagerOpen && me ? (
         <div className="gate">
           <section className="card pet-manager-card" role="dialog" aria-labelledby="pet-manager-title">
@@ -706,7 +658,7 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
             <div className="pet-manager-list">
               {myPets.length > 0 ? myPets.map((petItem) => (
                 <article className={`pet-manager-item ${selectedPetId === petItem.id ? "is-selected" : ""}`} key={petItem.id}>
-                  <button type="button" className="pet-select" onClick={() => { setSelectedPetId(petItem.id); setPetManagerOpen(false); setRoomOpen(true); }}>
+                  <button type="button" className="pet-select" onClick={() => { setSelectedPetId(petItem.id); setPetManagerOpen(false); }}>
                     <span className="pet-manager-emoji">{petEmoji({ species: petItem.species, status: petStatus(petItem.lastFedAt) })}</span>
                     <span><strong>{petItem.name}</strong><small>{petSpeciesLabel(petItem.species)} · {petStatusLabel(petStatus(petItem.lastFedAt))}</small></span>
                   </button>
