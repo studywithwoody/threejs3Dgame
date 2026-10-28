@@ -147,6 +147,21 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
         netRef.current?.sendProgress(next);
         return next;
       });
+      void fetch("/api/coin", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ playerId: player.id }),
+      }).then(async (response) => {
+        if (!response.ok) return;
+        const data = (await response.json()) as { progress?: IslandProgress; persisted?: boolean };
+        if (!data.persisted || !data.progress) return;
+        const next = normalizeProgress(data.progress);
+        progressRef.current = next;
+        saveProgress(next);
+        setProgress(next);
+      }).catch(() => {
+        // Keep the local score when the database is unavailable.
+      });
       const notificationId = addNotification("金幣 +10 分");
       if (notificationId) {
         window.setTimeout(() => {
