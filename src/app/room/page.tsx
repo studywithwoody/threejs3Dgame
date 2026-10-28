@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import PetRoom3D from "@/components/PetRoom3D";
+import { defaultFurniture, FURNITURE_CATALOG, FURNITURE_BY_ID, type RoomFurniture } from "@/game/furniture";
 import { authClient } from "@/lib/auth-client";
 import { displayName } from "@/lib/profile";
 import {
@@ -26,6 +27,11 @@ export default function RoomPage() {
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [managerOpen, setManagerOpen] = useState(false);
+  const [furniture, setFurniture] = useState<RoomFurniture[]>([]);
+  const [ownedFurniture, setOwnedFurniture] = useState<Record<string, number>>({});
+  const [editing, setEditing] = useState(false);
+  const [selectedFurnitureId, setSelectedFurnitureId] = useState<string | null>(null);
+  const [roomRevision, setRoomRevision] = useState(0);
   const [guestId, setGuestId] = useState("guest");
   const user = session.data?.user;
   const playerId = user?.id ?? guestId;
@@ -56,10 +62,74 @@ export default function RoomPage() {
     return () => { active = false; };
   }, [user]);
 
+  useEffect(() => {
+    const local = readRoomStorage();
+    setFurniture(local.furniture);
+    setOwnedFurniture(local.owned);
+    if (!user) return;
+    void fetch("/api/room", { cache: "no-store" }).then(async (response) => {
+      if (!response.ok) return;
+      const data = await response.json() as { furniture?: RoomFurniture[]; owned?: Record<string, number> };
+      setFurniture(Array.isArray(data.furniture) ? data.furniture : []);
+      setOwnedFurniture(data.owned ?? {});
+    }).catch(() => undefined);
+  }, [user]);
+
   const pets = useMemo(() => (progress.pets[playerId] ?? []).map((pet) => ({ ...pet, status: petStatus(pet.lastFedAt) })), [progress, playerId]);
   const eggs = progress.eggs[playerId] ?? [];
   const score = progress.scores[playerId] ?? 0;
   const selectedPet = pets.find((pet) => pet.id === selectedPetId) ?? pets[0];
+
+  const saveRoom = (next: RoomFurniture[]) => {
+    setFurniture(next);
+    window.localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify({ furniture: next, owned: ownedFurniture }));
+    if (user) void fetch("/api/room", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "save", furniture: next }) });
+  };
+
+  const buyFurniture = async (assetId: string) => {
+    const item = FURNITURE_BY_ID.get(assetId);
+    if (!item || score < item.price) { setNotice("分數不足，先完成島嶼上的題目吧！"); return; }
+    if (user) {
+      const response = await fetch("/api/room", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "buy", assetId }) });
+      if (!response.ok) { setNotice(response.status === 409 ? "分數不足，無法購買這件家具。" : "家具商店暫時無法使用。"); return; }
+      const data = await response.json() as { score?: number };
+      const nextScore = data.score ?? score - item.price;
+      setProgress((current) => {
+        const next = { ...current, scores: { ...current.scores, [playerId]: nextScore } };
+        saveProgress(next);
+        return next;
+      });
+    } else {
+      setProgress((current) => {
+        const next = { ...current, scores: { ...current.scores, [playerId]: score - item.price } };
+        saveProgress(next);
+        return next;
+      });
+    }
+    const nextOwned = { ...ownedFurniture, [assetId]: (ownedFurniture[assetId] ?? 0) + 1 };
+    setOwnedFurniture(nextOwned);
+    window.localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify({ furniture, owned: nextOwned }));
+    setNotice(`已購買${item.name}，按「放入房間」開始佈置。`);
+  };
+
+  const addFurniture = (assetId: string) => {
+    const owned = ownedFurniture[assetId] ?? 0;
+    const placed = furniture.filter((item) => item.assetId === assetId).length;
+    if (placed >= owned) { setNotice("請先購買這件家具，或已經把擁有的數量放完了。"); return; }
+    const item = defaultFurniture(assetId, furniture.length);
+    if (!item) return;
+    saveRoom([...furniture, item]);
+    setSelectedFurnitureId(item.id);
+    setRoomRevision((value) => value + 1);
+    setEditing(true);
+  };
+
+  const removeFurniture = () => {
+    if (!selectedFurnitureId) return;
+    saveRoom(furniture.filter((item) => item.id !== selectedFurnitureId));
+    setSelectedFurnitureId(null);
+    setRoomRevision((value) => value + 1);
+  };
 
   const update = async (local: IslandProgress, action: string, extra: Record<string, string> = {}) => {
     setProgress(local);
@@ -137,7 +207,13 @@ export default function RoomPage() {
       <section className="room-page-content">
         <div className="room-page-stage">
           <PetRoom3D
+            key={`${roomRevision}-${editing ? "edit" : "view"}`}
             pets={pets}
+            furniture={furniture}
+            editing={editing}
+            selectedFurnitureId={selectedFurnitureId}
+            onSelectFurniture={setSelectedFurnitureId}
+            onFurnitureChange={saveRoom}
             onInteract={(pet) => {
               setSelectedPetId(pet.id);
               setNotice(pet.status === "sick" ? `${pet.name} 看起來需要休息。` : `${pet.name} 開心地跳起來！`);
@@ -152,6 +228,8 @@ export default function RoomPage() {
           <p>{petStatusText(selectedPet, pets.length, eggs.length)}</p>
           {selectedPet ? <div className="pet-stats"><span>狀態 <b className={`status-${selectedPet.status}`}>{petStatusLabel(selectedPet.status)}</b></span><span>照顧 {selectedPet.feedings} 次</span></div> : null}
           <div className="pet-shop"><div><strong>寵物店</strong><small>用答題分數照顧小夥伴</small></div>{selectedPet ? <button className="primary feed-button" type="button" onClick={feed} disabled={selectedPet.status === "dead" || score < 5}>🥕 餵食 <b>5 分</b></button> : null}<button className="primary feed-button" type="button" onClick={buy} disabled={score < EGG_COST}>🥚 買蛋 <b>{EGG_COST} 分</b></button></div>
+          <div className="room-editor-toolbar"><div><strong>房間佈置</strong><small>{editing ? "點擊家具後使用箭頭控制器拖曳、旋轉或縮放" : "購買家具後，開啟編輯模式開始佈置"}</small></div><button className={editing ? "primary" : "secondary"} type="button" onClick={() => setEditing((value) => !value)}>{editing ? "完成佈置" : "進入編輯"}</button>{editing && selectedFurnitureId ? <button className="texty danger-button" type="button" onClick={removeFurniture}>刪除選取</button> : null}</div>
+          {editing ? <div className="furniture-shop"><div className="furniture-shop-heading"><strong>家具商店</strong><small>分數：{score} · 已擁有可擺放家具</small></div><div className="furniture-grid">{FURNITURE_CATALOG.map((item) => { const owned = ownedFurniture[item.id] ?? 0; const placed = furniture.filter((entry) => entry.assetId === item.id).length; return <article className="furniture-item" key={item.id}><span className="furniture-icon">{item.icon}</span><div><strong>{item.name}</strong><small>{item.price} 分 · {placed}/{owned} 已擺放</small></div><button className="secondary" type="button" onClick={() => buyFurniture(item.id)} disabled={score < item.price}>購買</button><button className="texty" type="button" onClick={() => addFurniture(item.id)} disabled={placed >= owned}>放入房間</button></article>; })}</div></div> : null}
           <button className="secondary pet-manage-button" type="button" onClick={() => setManagerOpen(true)}>🧺 管理寵物與蛋（{pets.length}/{MAX_PETS}）</button>
           {notice ? <p className="pet-note">{notice}</p> : null}
           <p className="note">點擊寵物可以和牠互動。一天沒餵會生病，兩天沒餵會離世。</p>
@@ -164,6 +242,9 @@ export default function RoomPage() {
 
 function getGuestId() { if (typeof window === "undefined") return "guest"; const key = "dawn-isle-guest-id"; const current = window.localStorage.getItem(key); if (current) return current; const id = `guest-${crypto.randomUUID()}`; window.localStorage.setItem(key, id); return id; }
 function getGuestName() { if (typeof window === "undefined") return "訪客"; try { return JSON.parse(window.localStorage.getItem("dawn-isle-guest") || "{}").name || "訪客"; } catch { return "訪客"; } }
+const ROOM_STORAGE_KEY = "dawn-isle-room-v1";
+function readRoomStorage(): { furniture: RoomFurniture[]; owned: Record<string, number> } { if (typeof window === "undefined") return { furniture: [], owned: {} }; try { const value = JSON.parse(window.localStorage.getItem(ROOM_STORAGE_KEY) || "{}"); return { furniture: Array.isArray(value.furniture) ? value.furniture : [], owned: value.owned && typeof value.owned === "object" ? value.owned : {} }; } catch { return { furniture: [], owned: {} }; }
+}
 function petEmoji(pet?: Pick<PetState, "species" | "status">) { if (!pet) return "🥚"; if (pet.status === "dead") return "🪦"; if (pet.status === "sick") return "🤒"; return ({ bunny: "🐰", cat: "🐱", dog: "🐶", chicken: "🐔", beaver: "🦫", cow: "🐮", deer: "🦌", fox: "🦊", panda: "🐼", penguin: "🐧" } satisfies Record<PetSpecies, string>)[pet.species]; }
 function petStatusLabel(status: PetState["status"]) { return status === "dead" ? "已離世" : status === "sick" ? "生病了" : "健康有活力"; }
 function petStatusText(pet: PetState | undefined, petCount: number, eggCount: number) { if (!pet) return eggCount ? "你有神秘蛋等待孵化，打開管理中心看看吧。" : "房間還沒有寵物，先到寵物店買一顆蛋吧。"; if (pet.status === "dead") return "這位小夥伴已經離世，請到管理中心移除牠。"; if (pet.status === "sick") return `${pet.name} 今天不舒服，需要飼料和你的關心。`; return `${pet.name} 正在房間裡等你，目前共有 ${petCount} 隻寵物。`; }

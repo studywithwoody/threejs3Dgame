@@ -70,3 +70,26 @@ export const sceneObjects = pgTable("scene_object", {
   primaryKey({ columns: [table.sceneId, table.objectId] }),
   index("scene_object_scene_id_idx").on(table.sceneId),
 ]);
+
+export const furnitureInventory = pgTable("furniture_inventory", {
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  assetId: text("asset_id").notNull(),
+  quantity: integer("quantity").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [primaryKey({ columns: [table.userId, table.assetId] })]);
+
+export const roomFurniture = pgTable("room_furniture", {
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  objectId: text("object_id").notNull(),
+  assetId: text("asset_id").notNull(),
+  positionX: real("position_x").notNull(),
+  positionY: real("position_y").notNull(),
+  positionZ: real("position_z").notNull(),
+  rotationX: real("rotation_x").notNull(),
+  rotationY: real("rotation_y").notNull(),
+  rotationZ: real("rotation_z").notNull(),
+  scaleX: real("scale_x").notNull(),
+  scaleY: real("scale_y").notNull(),
+  scaleZ: real("scale_z").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [primaryKey({ columns: [table.userId, table.objectId] })]);

@@ -616,6 +616,16 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 .room-panel-intro { display: flex; align-items: center; gap: 12px; }
 .room-panel-intro h2 { margin: 2px 0 0; font-size: 30px; }
 .room-panel-intro .pet-mini { font-size: 42px; }
+.room-editor-toolbar, .furniture-shop-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 18px; padding: 12px; border: 1px solid #f0d7c9; border-radius: 14px; background: #fff8f4; }
+.room-editor-toolbar small, .furniture-shop-heading small, .furniture-item small { display: block; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.furniture-shop { margin-top: 10px; }
+.furniture-grid { display: grid; gap: 7px; max-height: 280px; margin-top: 8px; overflow: auto; padding-right: 3px; }
+.furniture-item { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 8px; border: 1px solid #f0e0d8; border-radius: 12px; background: #fff; }
+.furniture-item > div { min-width: 0; }
+.furniture-item button { padding: 5px 7px; font-size: 11px; }
+.furniture-item .texty { grid-column: 2 / -1; justify-self: start; padding: 0; }
+.furniture-icon { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 10px; background: #f7dfc8; font-size: 20px; }
+.pet-room-3d.is-editing { cursor: crosshair; }
 @media (max-width: 860px) {
   .room-page { padding: 14px 12px 20px; }
   .room-page-header { grid-template-columns: 1fr auto; }

@@ -3,12 +3,19 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
 import CameraControls, { type CameraAdjustment } from "@/components/CameraControls";
 import type { PetSpecies, PetState } from "@/game/types";
+import { FURNITURE_BY_ID, type RoomFurniture } from "@/game/furniture";
 
 type Props = {
   pets?: PetState[];
   onInteract?: (pet: PetState) => void;
+  furniture?: RoomFurniture[];
+  editing?: boolean;
+  selectedFurnitureId?: string | null;
+  onSelectFurniture?: (id: string | null) => void;
+  onFurnitureChange?: (furniture: RoomFurniture[]) => void;
 };
 
 const MODEL_PATHS: Record<PetSpecies, string> = {
@@ -38,11 +45,15 @@ const PET_SPOTS = [
 ];
 type CameraControls = typeof CAMERA_DEFAULT;
 
-export default function PetRoom3D({ pets = [], onInteract }: Props) {
+export default function PetRoom3D({ pets = [], onInteract, furniture = [], editing = false, selectedFurnitureId = null, onSelectFurniture, onFurnitureChange }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const interactRef = useRef(onInteract);
+  const selectFurnitureRef = useRef(onSelectFurniture);
+  const furnitureChangeRef = useRef(onFurnitureChange);
   const cameraControlsRef = useRef<CameraControls>({ ...CAMERA_DEFAULT });
   interactRef.current = onInteract;
+  selectFurnitureRef.current = onSelectFurniture;
+  furnitureChangeRef.current = onFurnitureChange;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -108,6 +119,22 @@ export default function PetRoom3D({ pets = [], onInteract }: Props) {
     scene.add(plant);
 
     const loader = new GLTFLoader();
+    const furnitureGroups = new Map<string, THREE.Group>();
+    const furnitureRoot = new THREE.Group();
+    furnitureRoot.name = "room-furniture";
+    scene.add(furnitureRoot);
+    const editorGrid = new THREE.GridHelper(10, 20, "#d97855", "#ffffff");
+    editorGrid.position.y = 0.02;
+    editorGrid.visible = editing;
+    scene.add(editorGrid);
+    const editorBox = new THREE.Box3();
+    const editorBoxHelper = new THREE.Box3Helper(editorBox, "#d97855");
+    editorBoxHelper.visible = false;
+    scene.add(editorBoxHelper);
+    const transformControls = new TransformControls(camera, renderer.domElement);
+    transformControls.setMode("translate");
+    transformControls.enabled = editing;
+    scene.add(transformControls.getHelper());
     type PetActor = {
       pet: PetState;
       group: THREE.Group;
@@ -123,6 +150,63 @@ export default function PetRoom3D({ pets = [], onInteract }: Props) {
       petJump: number;
     };
     const actors: PetActor[] = [];
+
+    const syncFurniture = () => {
+      const active = new Set(furniture.map((item) => item.id));
+      for (const [id, group] of furnitureGroups) {
+        if (!active.has(id)) {
+          furnitureRoot.remove(group);
+          furnitureGroups.delete(id);
+        }
+      }
+      furniture.forEach((item) => {
+        const catalog = FURNITURE_BY_ID.get(item.assetId);
+        if (!catalog) return;
+        const group = furnitureGroups.get(item.id);
+        if (group) {
+          group.position.set(...item.position);
+          group.rotation.set(...item.rotation);
+          group.scale.set(...item.scale);
+          return;
+        }
+        loader.load(catalog.path, (gltf) => {
+          const model = gltf.scene;
+          const bounds = new THREE.Box3().setFromObject(model);
+          const size = bounds.getSize(new THREE.Vector3());
+          const normalized = 1.5 / Math.max(size.y, size.x, size.z, 0.001);
+          model.scale.setScalar(normalized);
+          model.position.y = -bounds.min.y * normalized;
+          model.traverse((object) => { if (object instanceof THREE.Mesh) { object.castShadow = true; object.receiveShadow = true; } });
+          const itemGroup = new THREE.Group();
+          itemGroup.name = item.id;
+          itemGroup.position.set(...item.position);
+          itemGroup.rotation.set(...item.rotation);
+          itemGroup.scale.set(...item.scale);
+          itemGroup.add(model);
+          furnitureGroups.set(item.id, itemGroup);
+          furnitureRoot.add(itemGroup);
+          if (selectedFurnitureId === item.id && editing) transformControls.attach(itemGroup);
+        }, undefined, () => undefined);
+      });
+    };
+    syncFurniture();
+    const selectedGroup = () => selectedFurnitureId ? furnitureGroups.get(selectedFurnitureId) ?? null : null;
+    const updateEditorBounds = () => {
+      const group = selectedGroup();
+      editorBoxHelper.visible = Boolean(group && editing);
+      if (!group || !editing) return;
+      editorBox.setFromObject(group);
+      editorBoxHelper.updateMatrixWorld(true);
+    };
+    const collectFurniture = () => [...furnitureGroups.entries()].map(([id, group]) => ({ id, assetId: furniture.find((item) => item.id === id)?.assetId ?? "", position: [group.position.x, group.position.y, group.position.z] as [number, number, number], rotation: [group.rotation.x, group.rotation.y, group.rotation.z] as [number, number, number], scale: [group.scale.x, group.scale.y, group.scale.z] as [number, number, number] })).filter((item) => FURNITURE_BY_ID.has(item.assetId));
+    if (editing && selectedFurnitureId) {
+      const selected = selectedGroup();
+      if (selected) transformControls.attach(selected);
+    }
+    const onTransformChange = () => updateEditorBounds();
+    const onTransformEnd = (event: { value: unknown }) => { if (event.value === false) furnitureChangeRef.current?.(collectFurniture()); };
+    transformControls.addEventListener("change", onTransformChange);
+    transformControls.addEventListener("dragging-changed", onTransformEnd);
 
     const addTombstone = (group: THREE.Group) => {
       const tombstone = new THREE.Group();
@@ -210,10 +294,23 @@ export default function PetRoom3D({ pets = [], onInteract }: Props) {
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
+      const furnitureHit = editing ? raycaster.intersectObjects([...furnitureGroups.values()], true)[0] : null;
       hoveredActor = actors.find((actor) => actor.group.visible && raycaster.intersectObjects(actor.group.children, true).length > 0) ?? null;
-      renderer.domElement.style.cursor = hoveredActor ? "pointer" : "default";
+      renderer.domElement.style.cursor = furnitureHit || hoveredActor ? "pointer" : "default";
     };
     const onClick = () => {
+      if (editing) {
+        const hit = raycaster.intersectObjects([...furnitureGroups.values()], true)[0];
+        if (hit) {
+          let root: THREE.Object3D | null = hit.object;
+          while (root?.parent && root.parent !== furnitureRoot) root = root.parent;
+          const id = root?.name ?? null;
+          selectFurnitureRef.current?.(id);
+          if (root) transformControls.attach(root);
+          updateEditorBounds();
+        } else selectFurnitureRef.current?.(null);
+        return;
+      }
       if (!hoveredActor) return;
       hoveredActor.petJump = 1;
       interactRef.current?.(hoveredActor.pet);
@@ -272,6 +369,9 @@ export default function PetRoom3D({ pets = [], onInteract }: Props) {
       observer.disconnect();
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("click", onClick);
+      transformControls.removeEventListener("change", onTransformChange);
+      transformControls.removeEventListener("dragging-changed", onTransformEnd);
+      transformControls.dispose();
       renderer.dispose();
       mount.removeChild(renderer.domElement);
       scene.traverse((object) => {
@@ -298,7 +398,7 @@ export default function PetRoom3D({ pets = [], onInteract }: Props) {
   };
 
   return (
-    <div className={`pet-room-3d status-${pets.some((pet) => pet.status === "sick") ? "sick" : "healthy"}`} ref={mountRef}>
+    <div className={`pet-room-3d ${editing ? "is-editing" : ""} status-${pets.some((pet) => pet.status === "sick") ? "sick" : "healthy"}`} ref={mountRef}>
       <CameraControls onAdjust={adjustCamera} onReset={resetCamera} label="寵物房間視角控制" />
       <span className="pet-expression" aria-hidden="true">
         {pets.length === 0 ? "🏠" : pets.some((pet) => pet.status === "sick") ? "🤒" : "😊"}
