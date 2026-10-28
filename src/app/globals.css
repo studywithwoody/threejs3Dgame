@@ -63,13 +63,19 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   z-index: 2;
 }
 .site-header {
-  top: 22px;
-  left: 28px;
-  right: 28px;
+  top: 0;
+  left: 0;
+  right: 0;
+  min-height: 78px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
+  padding: 14px 28px;
+  border-bottom: 1px solid #ffffff;
+  background: #fff8f4e8;
+  box-shadow: 0 8px 24px #4a2a1414;
+  backdrop-filter: blur(12px);
   pointer-events: none;
 }
 .info-card { transition: background .18s ease, box-shadow .18s ease; }
@@ -95,16 +101,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 .brand {
   position: static;
   max-width: 240px;
-  padding: 10px 42px 10px 12px;
-  border-radius: 16px;
-  background: #fff8f4c7;
-  box-shadow: 0 8px 20px #4a2a1414;
-  backdrop-filter: blur(10px);
+  padding: 0 42px 0 0;
   pointer-events: auto;
 }
 .header-action {
   min-height: 42px;
-  margin-top: 2px;
+  margin-top: 4px;
   padding: 0 16px;
   border: 1px solid #ffffff;
   border-radius: 12px;
@@ -126,7 +128,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
 .brand h1 { margin: 4px 0; font-size: 40px; letter-spacing: 0.12em; font-weight: 900; }
 .brand p, .card p { color: var(--muted); line-height: 1.7; }
 .progress-pill {
-  top: 24px;
+  top: 94px;
   left: 50%;
   transform: translateX(-50%);
   padding: 5px 38px 5px 5px;
@@ -323,7 +325,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--coral); out
   .side { top: auto; bottom: 18px; right: 12px; left: auto; width: min(230px, 58vw); max-height: 32dvh; }
   .brand h1 { font-size: 28px; }
   .brand p { display: none; }
-  .site-header { top: 12px; left: 14px; right: 14px; }
+  .site-header { min-height: 66px; padding: 11px 14px; }
   .header-action { min-height: 38px; padding: 0 12px; font-size: 12px; }
   .progress-pill { top: 86px; left: 28px; transform: none; }
   .pet-room-3d { height: 230px; }
