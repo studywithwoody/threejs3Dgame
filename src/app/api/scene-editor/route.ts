@@ -1,7 +1,8 @@
 import { getAuth, isAuthConfigured } from "@/lib/auth";
-import { PLATFORMER_KIT_BY_ID } from "@/game/platformerKit/registry";
+import { GAME_ASSET_BY_ID } from "@/game/platformerKit/registry";
 import { replaceScene, readScene, MAIN_SCENE_ID } from "@/server/scene-store";
 import type { SceneObjectRecord, SceneRegion } from "@/game/platformerKit/sceneConfig";
+import { SCENE_DEFINITION_BY_ID, type SceneId } from "@/game/scenes";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -9,9 +10,11 @@ export const runtime = "nodejs";
 const REGIONS: SceneRegion[] = ["forest", "snow-mountain", "snow-valley", "highland", "floating"];
 const CATEGORIES = new Set(["terrain", "snow", "cliff", "platform", "tree", "rock", "fence", "ladder", "decoration", "collectible", "interactive", "character"]);
 
-export async function GET() {
-  const objects = await readScene();
-  return Response.json({ sceneId: MAIN_SCENE_ID, objects });
+export async function GET(request: Request) {
+  const requested = new URL(request.url).searchParams.get("sceneId");
+  const sceneId = requested && SCENE_DEFINITION_BY_ID.has(requested as SceneId) ? requested : MAIN_SCENE_ID;
+  const objects = await readScene(sceneId);
+  return Response.json({ sceneId, objects });
 }
 
 export async function PUT(request: Request) {
@@ -25,15 +28,16 @@ export async function PUT(request: Request) {
     return Response.json({ error: "bad_json" }, { status: 400 });
   }
   const objects = parseSceneObjects(body.objects);
-  if (body.sceneId !== undefined && body.sceneId !== MAIN_SCENE_ID) {
+  const sceneId = typeof body.sceneId === "string" ? body.sceneId : MAIN_SCENE_ID;
+  if (!SCENE_DEFINITION_BY_ID.has(sceneId as SceneId)) {
     return Response.json({ error: "unsupported_scene" }, { status: 400 });
   }
   if (!objects) return Response.json({ error: "bad_scene_objects" }, { status: 400 });
 
   try {
-    const persisted = await replaceScene(objects, auth.userId);
+    const persisted = await replaceScene(objects, auth.userId, sceneId);
     if (!persisted) return Response.json({ error: "database_unavailable" }, { status: 503 });
-    return Response.json({ saved: true, sceneId: MAIN_SCENE_ID, count: objects.length });
+    return Response.json({ saved: true, sceneId, count: objects.length });
   } catch (error) {
     console.error("[scene-editor] save failed", error);
     return Response.json({ error: "scene_editor_unavailable" }, { status: 500 });
@@ -60,7 +64,7 @@ function parseSceneObjects(value: unknown): SceneObjectRecord[] | null {
     if (!item || typeof item !== "object") return null;
     const record = item as Partial<SceneObjectRecord>;
     if (typeof record.id !== "string" || !/^[a-zA-Z0-9_-]+$/.test(record.id) || ids.has(record.id)) return null;
-    if (typeof record.assetId !== "string" || !PLATFORMER_KIT_BY_ID.has(record.assetId)) return null;
+    if (typeof record.assetId !== "string" || !GAME_ASSET_BY_ID.has(record.assetId)) return null;
     if (typeof record.category !== "string" || !CATEGORIES.has(record.category)) return null;
     if (typeof record.region !== "string" || !REGIONS.includes(record.region as SceneRegion)) return null;
     if (!isVector(record.position) || !isVector(record.rotation) || !isScale(record.scale)) return null;

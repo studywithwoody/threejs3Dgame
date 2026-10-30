@@ -5,9 +5,10 @@ import { TransformControls } from "three/examples/jsm/controls/TransformControls
 import { makeAvatar, type Avatar } from "@/game/avatar";
 import { uiBridge } from "@/game/bridge";
 import { buildIsland } from "@/game/island";
-import { configureTerrain, SPAWN, groundY, isWalkable, surfaceY } from "@/game/terrain";
-import { PLATFORMER_KIT_ASSETS, type PlatformerKitCategory } from "@/game/platformerKit/registry";
+import { configureTerrain, groundY, isWalkable, surfaceY } from "@/game/terrain";
+import { GAME_ASSETS, type PlatformerKitCategory } from "@/game/platformerKit/registry";
 import type { SceneObjectRecord, SceneRegion } from "@/game/platformerKit/sceneConfig";
+import type { SceneId } from "@/game/scenes";
 import type { IslandProgress, Pose, Profile } from "@/game/types";
 import type { CameraAdjustment } from "@/components/CameraControls";
 
@@ -39,7 +40,13 @@ type Remote = {
   seen: number;
 };
 
-export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[], canEditScene = true): GameApi {
+export function mountIsland(
+  host: HTMLElement,
+  sceneObjects: SceneObjectRecord[],
+  canEditScene = true,
+  sceneId: SceneId = "main-island",
+  spawn = { x: 4, z: -10.5 },
+): GameApi {
   const canvas = document.createElement("canvas");
   const labels = document.createElement("div");
   labels.className = "labels";
@@ -100,7 +107,7 @@ export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[]
   editorTools.className = "scene-editor-tools";
   const assetSelect = document.createElement("select");
   assetSelect.setAttribute("aria-label", "選擇素材");
-  assetSelect.innerHTML = PLATFORMER_KIT_ASSETS.map((asset) => `<option value="${asset.id}">${asset.id}</option>`).join("");
+  assetSelect.innerHTML = GAME_ASSETS.map((asset) => `<option value="${asset.id}">${asset.id}</option>`).join("");
   const regionSelect = document.createElement("select");
   regionSelect.setAttribute("aria-label", "選擇區域");
   regionSelect.innerHTML = ["forest", "snow-mountain", "snow-valley", "highland", "floating"].map((region) => `<option value="${region}">${region}</option>`).join("");
@@ -140,7 +147,7 @@ export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[]
     const response = await fetch("/api/scene-editor", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sceneId: "main-island", objects }),
+    body: JSON.stringify({ sceneId, objects }),
     }).catch(() => null);
     if (!response?.ok) return false;
     editorDirty = false;
@@ -170,7 +177,7 @@ export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[]
   };
 
   const onAddSceneObject = () => {
-    const asset = PLATFORMER_KIT_ASSETS.find((candidate) => candidate.id === assetSelect.value);
+    const asset = GAME_ASSETS.find((candidate) => candidate.id === assetSelect.value);
     if (!asset) return;
     const object: SceneObjectRecord = {
       id: `editor-${asset.id}-${Date.now()}`,
@@ -270,13 +277,13 @@ export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[]
   let playing = false;
   let profile: Profile | null = null;
   let local: Avatar | null = null;
-  let x = SPAWN.x;
-  let z = SPAWN.z;
+  let x = spawn.x;
+  let z = spawn.z;
   let ry = 0;
   let cameraYaw = 0;
   let cameraPitch = 0.4;
   let distance = 12;
-  let playerY = surfaceY(SPAWN.x, SPAWN.z) ?? groundY(SPAWN.x, SPAWN.z);
+  let playerY = surfaceY(spawn.x, spawn.z) ?? groundY(spawn.x, spawn.z);
   let jumpVelocity = 0;
   let grounded = true;
   let nearbyId: string | null = null;
@@ -444,8 +451,8 @@ export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[]
         } else if (playerY < -14) {
           // Keep the fall physical, but recover after leaving the playable
           // world so a missed jump never strands the player off-camera.
-          x = SPAWN.x;
-          z = SPAWN.z;
+          x = spawn.x;
+          z = spawn.z;
           playerY = surfaceY(x, z) ?? groundY(x, z);
           jumpVelocity = 0;
           grounded = true;
@@ -505,8 +512,8 @@ export function mountIsland(host: HTMLElement, sceneObjects: SceneObjectRecord[]
     enter(next) {
       profile = next;
       playing = true;
-      x = SPAWN.x;
-      z = SPAWN.z;
+      x = spawn.x;
+      z = spawn.z;
       ry = 0;
       playerY = surfaceY(x, z) ?? groundY(x, z);
       jumpVelocity = 0;

@@ -2,11 +2,8 @@ import "server-only";
 
 import { eq } from "drizzle-orm";
 import legacyOverrides from "@/game/platformerKit/scene-editor-overrides.json";
-import {
-  PLATFORMER_SCENE_OBJECTS,
-  type SceneObjectRecord,
-  type SceneRegion,
-} from "@/game/platformerKit/sceneConfig";
+import { defaultSceneObjects as sceneDefaults, SCENE_DEFINITIONS, SCENE_DEFINITION_BY_ID, type SceneDefinition, type SceneId } from "@/game/scenes";
+import { type SceneObjectRecord, type SceneRegion } from "@/game/platformerKit/sceneConfig";
 import type { PlatformerKitCategory } from "@/game/platformerKit/registry";
 import { getDb } from "@/lib/db";
 import { sceneObjects } from "@/db/schema";
@@ -15,8 +12,9 @@ export const MAIN_SCENE_ID = "main-island";
 
 type SceneRow = typeof sceneObjects.$inferSelect;
 
-export function defaultSceneObjects(): SceneObjectRecord[] {
-  return PLATFORMER_SCENE_OBJECTS.map((object) => {
+export function defaultSceneObjects(sceneId: SceneId = MAIN_SCENE_ID): SceneObjectRecord[] {
+  return sceneDefaults(sceneId).map((object) => {
+    if (sceneId !== MAIN_SCENE_ID) return object;
     const override = (legacyOverrides as Record<string, {
       position: [number, number, number];
       rotation: [number, number, number];
@@ -36,16 +34,20 @@ export function defaultSceneObjects(): SceneObjectRecord[] {
 
 export async function readScene(sceneId = MAIN_SCENE_ID): Promise<SceneObjectRecord[]> {
   const db = getDb();
-  if (!db) return defaultSceneObjects();
+  if (!db) return defaultSceneObjects(asSceneId(sceneId));
 
   try {
     const rows = await db.select().from(sceneObjects).where(eq(sceneObjects.sceneId, sceneId));
-    if (rows.length === 0) return defaultSceneObjects();
+    if (rows.length === 0) return defaultSceneObjects(asSceneId(sceneId));
     return rows.sort((a, b) => a.sortOrder - b.sortOrder).map(sceneRowToObject);
   } catch (error) {
     console.error("[scene-store] read failed", error);
-    return defaultSceneObjects();
+    return defaultSceneObjects(asSceneId(sceneId));
   }
+}
+
+export async function readSceneDefinitions(): Promise<SceneDefinition[]> {
+  return SCENE_DEFINITIONS;
 }
 
 export async function replaceScene(
@@ -98,4 +100,8 @@ function sceneRowToObject(row: SceneRow): SceneObjectRecord {
     visible: row.visible,
     autoAnchor: row.autoAnchor,
   };
+}
+
+function asSceneId(sceneId: string): SceneId {
+  return SCENE_DEFINITION_BY_ID.has(sceneId as SceneId) ? sceneId as SceneId : MAIN_SCENE_ID;
 }

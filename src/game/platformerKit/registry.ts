@@ -4,6 +4,7 @@ export type PlatformerKitAsset = {
   id: string;
   path: string;
   category: PlatformerKitCategory;
+  root?: string;
 };
 
 export const PLATFORMER_KIT_ASSETS: PlatformerKitAsset[] = [
@@ -778,9 +779,41 @@ export const PLATFORMER_KIT_BY_ID = new Map(
   PLATFORMER_KIT_ASSETS.map((asset) => [asset.id, asset]),
 );
 
+export const MINI_FOREST_ASSETS: PlatformerKitAsset[] = [
+  ["bridge", "platform"],
+  ["building-platform", "platform"],
+  ["building-roof", "decoration"],
+  ["building-structure", "decoration"],
+  ["fence", "fence"],
+  ["flag", "decoration"],
+  ["ladder", "ladder"],
+  ["patch-dirt", "decoration"],
+  ["patch-grass", "decoration"],
+  ["plant", "decoration"],
+  ["platform", "platform"],
+  ["rocks-high", "rock"],
+  ["rocks-low", "rock"],
+  ["rocks-ramp", "platform"],
+  ["stones", "rock"],
+  ["target", "interactive"],
+  ["tent", "decoration"],
+  ["tree-high", "tree"],
+  ["tree", "tree"],
+  ["weapon-arrow", "decoration"],
+  ["weapon-bow", "decoration"],
+].map(([id, category]) => ({
+  id: `mini-forest-${id}`,
+  path: `/Models/GLB%20format/${id}.glb`,
+  category: category as PlatformerKitCategory,
+  root: "/assets/mini-forest",
+}));
+
+export const GAME_ASSETS = [...PLATFORMER_KIT_ASSETS, ...MINI_FOREST_ASSETS];
+export const GAME_ASSET_BY_ID = new Map(GAME_ASSETS.map((asset) => [asset.id, asset]));
+
 export function platformerKitPath(assetId: string) {
-  const asset = PLATFORMER_KIT_BY_ID.get(assetId);
-  if (!asset) throw new Error("Unknown Platformer Kit asset: " + assetId);
-  return `/assets/platformer-kit${asset.path}`;
+  const asset = GAME_ASSET_BY_ID.get(assetId);
+  if (!asset) throw new Error("Unknown game asset: " + assetId);
+  return `${asset.root ?? "/assets/platformer-kit"}${asset.path}`;
 }
 

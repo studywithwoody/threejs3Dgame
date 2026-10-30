@@ -1,4 +1,3 @@
-import { SPAWN } from "@/game/terrain";
 import type { IslandProgress, Pose, Profile } from "@/game/types";
 
 const CHANNEL = "dawn-isle";
@@ -32,19 +31,19 @@ type Handlers = {
 
 export async function connectIsland(
   handlers: Handlers,
-  options?: { databaseConfigured?: boolean },
+  options?: { databaseConfigured?: boolean; spawn?: { x: number; z: number } },
 ): Promise<RealtimeTransport> {
-  const local = connectBroadcast(handlers);
+  const local = connectBroadcast(handlers, options?.spawn);
   const warning = options?.databaseConfigured
     ? "即時多人連線尚未接上。同一個瀏覽器的分頁看得到彼此；全班的答題進度存在資料庫。"
     : "尚未連接資料庫。進度存在這台瀏覽器，同一個瀏覽器的分頁看得到彼此。";
   return { ...local, warning };
 }
 
-function connectBroadcast(handlers: Handlers): RealtimeTransport {
+function connectBroadcast(handlers: Handlers, spawn = { x: 4, z: -10.5 }): RealtimeTransport {
   const channel = new BroadcastChannel(CHANNEL);
   let profile = handlers.profile;
-  const poseNow = { x: SPAWN.x, z: SPAWN.z, ry: 0 };
+  const poseNow = { x: spawn.x, z: spawn.z, ry: 0 };
   const roster = new Map<string, Profile & { seen: number }>();
 
   const publishRoster = () => {

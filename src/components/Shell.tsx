@@ -30,6 +30,7 @@ import {
 import { emptyProgress, type IslandProgress, type PetSpecies, type PetState, type Profile } from "@/game/types";
 import { petStatus } from "@/game/progress";
 import type { SceneObjectRecord } from "@/game/platformerKit/sceneConfig";
+import type { SceneDefinition } from "@/game/scenes";
 
 type Status = {
   authConfigured: boolean;
@@ -76,7 +77,7 @@ function InfoCardToggle({
 
 const GUEST_KEY = "dawn-isle-guest";
 
-export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjectRecord[] }) {
+export function Shell({ initialSceneObjects, scene, dateKey }: { initialSceneObjects: SceneObjectRecord[]; scene: SceneDefinition; dateKey: string }) {
   const apiRef = useRef<GameApi | null>(null);
   const netRef = useRef<IslandConnection | null>(null);
   const generation = useRef(0);
@@ -269,7 +270,7 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
           onLeave: (id) => apiRef.current?.removeRemote(id),
           onRoster: (people) => setRoster(people),
         },
-        { databaseConfigured: status?.databaseConfigured },
+        { databaseConfigured: status?.databaseConfigured, spawn: scene.spawn },
       );
       if (ticket !== generation.current) {
         conn.close();
@@ -475,6 +476,7 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
       <IslandStage
         api={apiRef}
         sceneObjects={initialSceneObjects}
+        scene={scene}
         canEditScene={!status?.authConfigured || user?.role === "admin"}
       />
       <CameraControls
@@ -490,7 +492,7 @@ export function Shell({ initialSceneObjects }: { initialSceneObjects: SceneObjec
         <div className="brand">
           <p className="eyebrow">DAWN ISLE</p>
           <h1>曙島</h1>
-          <p>五座物理站，全班一起點亮。</p>
+          <p>{scene.name} · 每日地圖 {dateKey}</p>
         </div>
         <nav className="header-nav" aria-label="主要導覽">
           <Link className="header-action" href="/furniture">家具商店</Link>

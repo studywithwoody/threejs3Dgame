@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PLATFORMER_KIT_ASSETS, type PlatformerKitCategory } from "@/game/platformerKit/registry";
+import { GAME_ASSETS, type PlatformerKitCategory } from "@/game/platformerKit/registry";
 
 const categories: Array<"all" | PlatformerKitCategory> = [
   "all", "terrain", "snow", "cliff", "platform", "tree", "rock", "fence", "ladder",
@@ -11,7 +11,7 @@ const categories: Array<"all" | PlatformerKitCategory> = [
 export default function PlatformerKitGalleryPage() {
   const [category, setCategory] = useState<(typeof categories)[number]>("all");
   const assets = useMemo(
-    () => category === "all" ? PLATFORMER_KIT_ASSETS : PLATFORMER_KIT_ASSETS.filter((asset) => asset.category === category),
+    () => category === "all" ? GAME_ASSETS : GAME_ASSETS.filter((asset) => asset.category === category),
     [category],
   );
 
@@ -36,7 +36,7 @@ export default function PlatformerKitGalleryPage() {
         {assets.map((asset) => (
           <article className="kit-card" key={asset.id}>
             <div className="kit-card__preview">
-              <img src={`/assets/platformer-kit/Previews/${asset.id}.png`} alt={asset.id} loading="lazy" />
+              <img src={`${asset.root ?? "/assets/platformer-kit"}/Previews/${asset.id.replace("mini-forest-", "")}.png`} alt={asset.id} loading="lazy" />
             </div>
             <div className="kit-card__meta">
               <strong>{asset.id}</strong>
