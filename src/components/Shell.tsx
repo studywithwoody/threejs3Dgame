@@ -496,6 +496,7 @@ export function Shell({ initialSceneObjects, scene, dateKey }: { initialSceneObj
         </div>
         <nav className="header-nav" aria-label="主要導覽">
           <Link className="header-action" href="/furniture">家具商店</Link>
+          {user?.role === "admin" ? <Link className="header-action" href="/admin">地圖控制台</Link> : null}
           {me ? <button className="header-action" type="button" onClick={() => (status?.authConfigured ? void authClient.signOut() : leaveGame())}>{status?.authConfigured ? "登出" : "離開島嶼"}</button> : null}
         </nav>
       </header>

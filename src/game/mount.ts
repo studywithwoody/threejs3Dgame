@@ -26,6 +26,7 @@ export type GameApi = {
   adjustCamera: (change: CameraAdjustment) => void;
   resetCamera: () => void;
   setEditorAccess: (allowed: boolean) => void;
+  setEditorEnabled: (enabled: boolean) => void;
   dispose: () => void;
 };
 
@@ -46,6 +47,8 @@ export function mountIsland(
   canEditScene = true,
   sceneId: SceneId = "main-island",
   spawn = { x: 4, z: -10.5 },
+  editorSaveUrl = "/api/scene-editor",
+  onEditorSaved?: () => void,
 ): GameApi {
   const canvas = document.createElement("canvas");
   const labels = document.createElement("div");
@@ -144,7 +147,7 @@ export function mountIsland(
 
   const saveEditorScene = async () => {
     const objects = world.getSceneObjects();
-    const response = await fetch("/api/scene-editor", {
+    const response = await fetch(editorSaveUrl, {
       method: "PUT",
       headers: { "content-type": "application/json" },
     body: JSON.stringify({ sceneId, objects }),
@@ -152,6 +155,7 @@ export function mountIsland(
     if (!response?.ok) return false;
     editorDirty = false;
     updateEditorHud();
+    onEditorSaved?.();
     return true;
   };
 
@@ -606,6 +610,7 @@ export function mountIsland(
       editorCanWrite = allowed;
       if (!allowed && editorEnabled) setEditorEnabled(false);
     },
+    setEditorEnabled,
     dispose() {
       running = false;
       cancelAnimationFrame(frame);

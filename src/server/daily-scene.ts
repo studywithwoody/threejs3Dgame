@@ -1,9 +1,12 @@
-import { readSceneDefinitions } from "./scene-store";
+import { readHomepageSceneSetting, readSceneDefinitions } from "./scene-store";
 import type { SceneDefinition, SceneId } from "@/game/scenes";
 
 export async function resolveDailyScene(now = new Date()): Promise<{ scene: SceneDefinition; dateKey: string }> {
   const dateKey = taipeiDateKey(now);
   const scenes = (await readSceneDefinitions()).filter((scene) => scene.rotationEligible);
+  const configuredSceneId = await readHomepageSceneSetting();
+  const configuredScene = configuredSceneId ? scenes.find((scene) => scene.id === configuredSceneId) : undefined;
+  if (configuredScene) return { scene: configuredScene, dateKey };
   const eligible = scenes.length > 0 ? scenes : [{
     id: "main-island" as SceneId,
     name: "曙島",

@@ -1,7 +1,8 @@
 export * from "./auth-schema";
 
-import { boolean, index, integer, pgTable, primaryKey, real, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgTable, primaryKey, real, text, timestamp } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
+import type { SceneObjectRecord } from "@/game/platformerKit/sceneConfig";
 
 /** One private progress row per authenticated user. */
 export const userProgress = pgTable("user_progress", {
@@ -70,6 +71,20 @@ export const sceneObjects = pgTable("scene_object", {
   primaryKey({ columns: [table.sceneId, table.objectId] }),
   index("scene_object_scene_id_idx").on(table.sceneId),
 ]);
+
+export const sceneLayoutDrafts = pgTable("scene_layout_draft", {
+  sceneId: text("scene_id").primaryKey(),
+  objects: jsonb("objects").$type<SceneObjectRecord[]>().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+});
+
+export const homepageSceneSettings = pgTable("homepage_scene_setting", {
+  id: integer("id").primaryKey().default(1),
+  sceneId: text("scene_id"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+});
 
 export const furnitureInventory = pgTable("furniture_inventory", {
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),

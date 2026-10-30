@@ -6,7 +6,7 @@ import { defaultSceneObjects as sceneDefaults, SCENE_DEFINITIONS, SCENE_DEFINITI
 import { type SceneObjectRecord, type SceneRegion } from "@/game/platformerKit/sceneConfig";
 import type { PlatformerKitCategory } from "@/game/platformerKit/registry";
 import { getDb } from "@/lib/db";
-import { sceneObjects } from "@/db/schema";
+import { homepageSceneSettings, sceneLayoutDrafts, sceneObjects } from "@/db/schema";
 
 export const MAIN_SCENE_ID = "main-island";
 
@@ -53,38 +53,104 @@ export async function readSceneDefinitions(): Promise<SceneDefinition[]> {
 export async function replaceScene(
   objects: SceneObjectRecord[],
   updatedBy: string,
-  sceneId = MAIN_SCENE_ID,
+  sceneId: SceneId = MAIN_SCENE_ID,
 ) {
   const db = getDb();
   if (!db) return false;
 
   await db.transaction(async (tx) => {
-    await tx.delete(sceneObjects).where(eq(sceneObjects.sceneId, sceneId));
-    if (objects.length === 0) return;
-    await tx.insert(sceneObjects).values(objects.map((object, index) => ({
-      sceneId,
-      objectId: object.id,
-      assetId: object.assetId,
-      category: object.category,
-      region: object.region,
-      positionX: object.position[0],
-      positionY: object.position[1],
-      positionZ: object.position[2],
-      rotationX: object.rotation[0],
-      rotationY: object.rotation[1],
-      rotationZ: object.rotation[2],
-      scaleX: object.scale[0],
-      scaleY: object.scale[1],
-      scaleZ: object.scale[2],
-      visible: object.visible,
-      collectible: object.collectible,
-      autoAnchor: object.autoAnchor,
-      sortOrder: index,
-      updatedBy,
-      updatedAt: new Date(),
-    })));
+    await writeSceneObjects(tx, objects, updatedBy, sceneId);
   });
   return true;
+}
+
+export async function readSceneDraft(sceneId: SceneId) {
+  const db = getDb();
+  if (!db) return null;
+  try {
+    const rows = await db.select().from(sceneLayoutDrafts).where(eq(sceneLayoutDrafts.sceneId, sceneId)).limit(1);
+    return rows[0]?.objects ?? null;
+  } catch (error) {
+    console.error("[scene-store] draft read failed", error);
+    return null;
+  }
+}
+
+export async function saveSceneDraft(sceneId: SceneId, objects: SceneObjectRecord[], updatedBy: string) {
+  const db = getDb();
+  if (!db) return false;
+  await db.insert(sceneLayoutDrafts).values({ sceneId, objects, updatedBy, updatedAt: new Date() }).onConflictDoUpdate({
+    target: sceneLayoutDrafts.sceneId,
+    set: { objects, updatedBy, updatedAt: new Date() },
+  });
+  return true;
+}
+
+export async function readHomepageSceneSetting() {
+  const db = getDb();
+  if (!db) return null;
+  try {
+    const rows = await db.select().from(homepageSceneSettings).where(eq(homepageSceneSettings.id, 1)).limit(1);
+    return rows[0]?.sceneId ?? null;
+  } catch (error) {
+    console.error("[scene-store] homepage setting read failed", error);
+    return null;
+  }
+}
+
+export async function publishHomepageScene(sceneId: SceneId, objects: SceneObjectRecord[], updatedBy: string) {
+  const db = getDb();
+  if (!db) return false;
+  await db.transaction(async (tx) => {
+    await writeSceneObjects(tx, objects, updatedBy, sceneId);
+    await tx.insert(homepageSceneSettings).values({ id: 1, sceneId, updatedBy, updatedAt: new Date() }).onConflictDoUpdate({
+      target: homepageSceneSettings.id,
+      set: { sceneId, updatedBy, updatedAt: new Date() },
+    });
+  });
+  return true;
+}
+
+export async function clearHomepageSceneSetting(updatedBy: string) {
+  const db = getDb();
+  if (!db) return false;
+  await db.insert(homepageSceneSettings).values({ id: 1, sceneId: null, updatedBy, updatedAt: new Date() }).onConflictDoUpdate({
+    target: homepageSceneSettings.id,
+    set: { sceneId: null, updatedBy, updatedAt: new Date() },
+  });
+  return true;
+}
+
+type SceneWriter = {
+  insert: (...args: any[]) => any;
+  delete: (...args: any[]) => any;
+};
+
+async function writeSceneObjects(tx: SceneWriter, objects: SceneObjectRecord[], updatedBy: string, sceneId: SceneId) {
+  await tx.delete(sceneObjects).where(eq(sceneObjects.sceneId, sceneId));
+  if (objects.length === 0) return;
+  await tx.insert(sceneObjects).values(objects.map((object, index) => ({
+    sceneId,
+    objectId: object.id,
+    assetId: object.assetId,
+    category: object.category,
+    region: object.region,
+    positionX: object.position[0],
+    positionY: object.position[1],
+    positionZ: object.position[2],
+    rotationX: object.rotation[0],
+    rotationY: object.rotation[1],
+    rotationZ: object.rotation[2],
+    scaleX: object.scale[0],
+    scaleY: object.scale[1],
+    scaleZ: object.scale[2],
+    visible: object.visible,
+    collectible: object.collectible,
+    autoAnchor: object.autoAnchor,
+    sortOrder: index,
+    updatedBy,
+    updatedAt: new Date(),
+  })));
 }
 
 function sceneRowToObject(row: SceneRow): SceneObjectRecord {

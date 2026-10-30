@@ -10,24 +10,28 @@ function IslandStage({
   sceneObjects,
   scene,
   canEditScene,
+  editorSaveUrl,
+  onEditorSaved,
 }: {
   api: { current: GameApi | null };
   sceneObjects: SceneObjectRecord[];
   scene: SceneDefinition;
   canEditScene: boolean;
+  editorSaveUrl?: string;
+  onEditorSaved?: () => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const game = mountIsland(host, sceneObjects, canEditScene, scene.id, scene.spawn);
+    const game = mountIsland(host, sceneObjects, canEditScene, scene.id, scene.spawn, editorSaveUrl, onEditorSaved);
     api.current = game;
     return () => {
       game.dispose();
       if (api.current === game) api.current = null;
     };
-  }, [api, sceneObjects, scene]);
+  }, [api, sceneObjects, scene, editorSaveUrl, onEditorSaved]);
 
   useEffect(() => {
     api.current?.setEditorAccess(canEditScene);
